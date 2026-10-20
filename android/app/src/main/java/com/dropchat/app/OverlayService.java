@@ -108,6 +108,12 @@ public class OverlayService extends Service {
     open.setOnClickListener(v -> openApp());
     card.addView(open, new LinearLayout.LayoutParams(-1, 52));
 
+    Button minimize = new Button(this);
+    minimize.setText("Minimize");
+    minimize.setTextColor(Color.WHITE);
+    minimize.setOnClickListener(v -> hidePanel());
+    card.addView(minimize, new LinearLayout.LayoutParams(-1, 52));
+
     TextView close = new TextView(this);
     close.setText("Close floating bubble");
     close.setTextColor(Color.LTGRAY);
@@ -117,11 +123,19 @@ public class OverlayService extends Service {
     card.addView(close, new LinearLayout.LayoutParams(-1, 52));
 
     panel = card;
-    panelParams = new WindowManager.LayoutParams(310, 240, overlayType(), WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
+    int panelFlags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+    panelParams = new WindowManager.LayoutParams(310, 300, overlayType(), panelFlags, PixelFormat.TRANSLUCENT);
     panelParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
     panelParams.y = 180;
     attachDrag(card, panelParams, false);
     windowManager.addView(panel, panelParams);
+  }
+
+  private void hidePanel() {
+    if (panel != null && windowManager != null) {
+      windowManager.removeView(panel);
+      panel = null;
+    }
   }
 
   private void openApp() {
