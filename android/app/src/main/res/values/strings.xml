@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">dropchat</string>
+    <string name="title_activity_main">dropchat</string>
+    <string name="package_name">com.dropchat.app</string>
+    <string name="custom_url_scheme">com.dropchat.app</string>
+</resources>
