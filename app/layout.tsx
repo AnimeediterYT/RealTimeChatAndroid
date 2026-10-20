@@ -4,7 +4,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Bubble Chat — private rooms, no accounts',
-  description: 'Bubble Chat keeps friends connected with instant private rooms, real-time messaging, and a floating chat experience.'
+  description: 'Bubble Chat keeps friends connected with instant private rooms, real-time messaging, and a floating chat experience.',
   generator: 'v0.app',
   icons: {
     icon: [
