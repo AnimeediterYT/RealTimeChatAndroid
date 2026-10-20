@@ -3,8 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'dropchat — private rooms, no accounts',
-  description: 'A simple real-time chat room for two friends. No accounts, no passwords.',
+  title: 'Bubble Chat — private rooms, no accounts',
+  description: 'Bubble Chat keeps friends connected with instant private rooms, real-time messaging, and a floating chat experience.'
   generator: 'v0.app',
   icons: {
     icon: [

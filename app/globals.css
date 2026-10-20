@@ -153,7 +153,14 @@
   }
 }
 
-.bubble-gradient { background: linear-gradient(135deg, #29d3ff 0%, #6c5ce7 52%, #b44cff 100%); }
+.bubble-gradient { background: linear-gradient(135deg, #11d7ff 0%, #315dff 46%, #d72dff 100%); }
+.bubble-text { background: linear-gradient(90deg, #38dfff 0%, #7e6cff 55%, #ed43e8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bubble-app { position: relative; isolation: isolate; }
+.bubble-app::before, .bubble-app::after { content: ''; position: fixed; z-index: -1; pointer-events: none; border-radius: 999px; filter: blur(70px); opacity: .25; }
+.bubble-app::before { width: 28rem; height: 28rem; top: -12rem; right: -8rem; background: #214cff; }
+.bubble-app::after { width: 24rem; height: 24rem; bottom: -10rem; left: -8rem; background: #a72eff; }
+.bubble-app input, .bubble-app button { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 640px) { .bubble-app::before { width: 18rem; height: 18rem; } .bubble-app::after { width: 16rem; height: 16rem; } }
 
 @layer base {
   * {
