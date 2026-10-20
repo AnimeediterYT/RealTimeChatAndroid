@@ -153,6 +153,8 @@
   }
 }
 
+.bubble-gradient { background: linear-gradient(135deg, #29d3ff 0%, #6c5ce7 52%, #b44cff 100%); }
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
