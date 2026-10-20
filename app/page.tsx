@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
-import { ArrowUp, Check, Copy, Heart, MessageCircle, Moon, Send, Sun, ThumbsUp, Users, X } from 'lucide-react'
+import { ArrowUp, Check, Copy, Heart, MessageCircle, Send, ThumbsUp, Users, X } from 'lucide-react'
 
 type Message = { id: string; room_id: string; sender_name: string; body: string; reaction?: string | null; created_at: string }
 type Presence = { name: string; online_at: string }
@@ -21,7 +21,6 @@ export default function Page() {
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [open, setOpen] = useState(false)
-  const [dark, setDark] = useState(false)
   const [copied, setCopied] = useState(false)
   const [typing, setTyping] = useState(false)
   const [friendOnline, setFriendOnline] = useState(false)
@@ -34,10 +33,8 @@ export default function Page() {
     const params = new URLSearchParams(window.location.search)
     setRoom(params.get('room')?.toUpperCase() || '')
     setName(sessionStorage.getItem('chat-name') || '')
-    setDark(sessionStorage.getItem('chat-theme') === 'dark')
+    document.documentElement.classList.add('dark')
   }, [])
-
-  useEffect(() => { document.documentElement.classList.toggle('dark', dark); sessionStorage.setItem('chat-theme', dark ? 'dark' : 'light') }, [dark])
 
   useEffect(() => {
     if (!room || !supabase) return
@@ -73,7 +70,7 @@ export default function Page() {
 
   return <main className="bubble-app min-h-screen overflow-hidden bg-[#020817] text-slate-100 transition-colors dark:bg-[#020817] dark:text-slate-100">
     <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-10 lg:px-16">
-      <header className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="bubble-gradient grid size-10 place-items-center rounded-2xl text-white shadow-lg shadow-cyan-500/20"><MessageCircle /></div><span className="text-lg font-semibold tracking-tight">Bubble <span className="text-cyan-300">Chat</span></span></div><button aria-label="Toggle dark mode" onClick={() => setDark(v => !v)} className="rounded-full border border-slate-200 bg-white p-2.5 shadow-sm transition hover:scale-105 dark:border-slate-700 dark:bg-slate-800">{dark ? <Sun size={18} /> : <Moon size={18} />}</button></header>
+      <header className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="bubble-gradient grid size-10 place-items-center rounded-2xl text-white shadow-lg shadow-cyan-500/20"><MessageCircle /></div><span className="text-lg font-semibold tracking-tight">Bubble <span className="text-cyan-300">Chat</span></span></div><span className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">Always on</span></header>
       <section className="flex flex-1 flex-col justify-center py-14"><div className="max-w-2xl"><div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"><span className="size-2 rounded-full bg-emerald-400" /> No accounts. Just a room.</div><h1 className="text-5xl font-semibold leading-[1.04] tracking-[-0.06em] sm:text-7xl">Chat anytime,<br /><span className="bubble-text">anywhere.</span></h1><p className="mt-7 max-w-lg text-base leading-7 text-slate-300">Create a room, share the link, and stay connected with your friends. No accounts, no noise, just conversation.</p><div className="mt-9 flex flex-col gap-3 sm:flex-row"><button onClick={createRoom} className="rounded-xl bg-slate-900 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-900">Create a new room <ArrowUp className="ml-2 inline rotate-45" size={16} /></button><div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"><input aria-label="Room code" value={room} onChange={e => setRoom(e.target.value)} onKeyDown={e => e.key === 'Enter' && joinRoom()} placeholder="Enter room code" className="w-36 bg-transparent px-4 text-sm outline-none placeholder:text-slate-400" /><button onClick={joinRoom} className="border-l border-slate-200 px-4 text-sm font-semibold dark:border-slate-700">Join</button></div></div></div></section>
       <footer className="flex items-center justify-between border-t border-slate-200 py-5 text-xs text-slate-400 dark:border-slate-800"><span>Small bubble. Big connection.</span><span className="hidden sm:block">Private room messaging</span></footer>
     </div>
