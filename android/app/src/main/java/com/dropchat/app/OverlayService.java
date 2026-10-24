@@ -1,5 +1,8 @@
 package com.dropchat.app;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.graphics.Color;
@@ -17,6 +20,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class OverlayService extends Service {
+  private static final String CHANNEL_ID = "bubble_chat_overlay";
+  private static final int NOTIFICATION_ID = 1001;
   private WindowManager windowManager;
   private View bubble;
   private View panel;
@@ -39,8 +44,25 @@ public class OverlayService extends Service {
   @Override public void onCreate() {
     super.onCreate();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) { stopSelf(); return; }
+    startForegroundServiceNotification();
     windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
     createBubble();
+  }
+
+  private void startForegroundServiceNotification() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Bubble Chat overlay", NotificationManager.IMPORTANCE_LOW);
+      NotificationManager manager = getSystemService(NotificationManager.class);
+      manager.createNotificationChannel(channel);
+    }
+    Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+      ? new Notification.Builder(this, CHANNEL_ID)
+      : new Notification.Builder(this);
+    builder.setContentTitle("Bubble Chat is active")
+      .setContentText("Tap the floating bubble to open chat")
+      .setSmallIcon(android.R.drawable.ic_dialog_info)
+      .setOngoing(true);
+    startForeground(NOTIFICATION_ID, builder.build());
   }
 
   private void createBubble() {
@@ -146,8 +168,9 @@ public class OverlayService extends Service {
   @Override public int onStartCommand(Intent intent, int flags, int startId) { return START_STICKY; }
 
   @Override public void onDestroy() {
-    if (panel != null && windowManager != null) windowManager.removeView(panel);
-    if (bubble != null && windowManager != null) windowManager.removeView(bubble);
+    if (panel != null && windowManager != null) { windowManager.removeViewImmediate(panel); panel = null; }
+    if (bubble != null && windowManager != null) { windowManager.removeViewImmediate(bubble); bubble = null; }
+    stopForeground(true);
     super.onDestroy();
   }
 
