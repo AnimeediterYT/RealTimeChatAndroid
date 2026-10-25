@@ -1,114 +1,120 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { createClient, type RealtimeChannel } from '@supabase/supabase-js'
-import { ArrowUp, Check, Copy, Heart, Lock, Mail, MessageCircle, Send, ThumbsUp, Users, X } from 'lucide-react'
+import { createClient, type RealtimeChannel, type User } from '@supabase/supabase-js'
+import { ArrowUp, Check, Copy, MessageCircle, Send, UserPlus, Users, X } from 'lucide-react'
 
-type Message = { id: string; room_id: string; sender_name: string; body: string; reaction?: string | null; created_at: string }
-type Presence = { name: string; online_at: string }
-
-function mergeMessages(current: Message[], incoming: Message[]) {
-  const byId = new Map<string, Message>()
-  for (const item of [...current, ...incoming]) {
-    if (item?.id) byId.set(item.id, item)
-  }
-  return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at))
-}
+type RoomMessage = { id: string; room_id: string; sender_name: string; body: string; reaction?: string | null; created_at: string }
+type Profile = { id: string; username: string; display_name: string; bio: string; avatar_url?: string | null }
+type FriendRequest = { id: string; sender_id: string; receiver_id: string; status: string; created_at: string }
+type Friendship = { id: string; user_a: string; user_b: string }
+type PrivateConversation = { id: string; user_a: string; user_b: string }
+type PrivateMessage = { id: string; conversation_id: string; sender_id: string; body: string; created_at: string }
 
 const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '')
   : null
-
-function makeRoom() { return Math.random().toString(36).slice(2, 8).toUpperCase() }
+const mergeById = <T extends { id: string; created_at?: string }>(a: T[], b: T[]) => Array.from(new Map([...a, ...b].map((item) => [item.id, item])).values()).sort((left, right) => (left.created_at || '').localeCompare(right.created_at || ''))
+const roomCode = () => Math.random().toString(36).slice(2, 8).toUpperCase()
 
 export default function Page() {
-  const [room, setRoom] = useState('')
-  const [name, setName] = useState('')
-  const [nameInput, setNameInput] = useState('')
+  const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [authError, setAuthError] = useState('')
-  const [authBusy, setAuthBusy] = useState(false)
-  const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState<Message[]>([])
-  const [open, setOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [typing, setTyping] = useState(false)
-  const [friendOnline, setFriendOnline] = useState(false)
-  const [drag, setDrag] = useState(false)
-  const channelRef = useRef<RealtimeChannel | null>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [displayName, setDisplayName] = useState(''); const [username, setUsername] = useState(''); const [bio, setBio] = useState(''); const [authError, setAuthError] = useState(''); const [busy, setBusy] = useState('')
+  const [room, setRoom] = useState(''); const [roomOpen, setRoomOpen] = useState(false); const [roomText, setRoomText] = useState(''); const [roomMessages, setRoomMessages] = useState<RoomMessage[]>([]); const [roomLoading, setRoomLoading] = useState(false); const [roomError, setRoomError] = useState(''); const [copied, setCopied] = useState(false)
+  const [profiles, setProfiles] = useState<Profile[]>([]); const [requests, setRequests] = useState<FriendRequest[]>([]); const [friendships, setFriendships] = useState<Friendship[]>([]); const [search, setSearch] = useState(''); const [socialLoading, setSocialLoading] = useState(false); const [socialError, setSocialError] = useState('')
+  const [conversation, setConversation] = useState<PrivateConversation | null>(null); const [privateMessages, setPrivateMessages] = useState<PrivateMessage[]>([]); const [privateText, setPrivateText] = useState('')
+  const roomChannel = useRef<RealtimeChannel | null>(null); const privateChannel = useRef<RealtimeChannel | null>(null)
+
+  const loadSocial = useCallback(async (current: User) => {
+    if (!supabase) return
+    setSocialLoading(true); setSocialError('')
+    const [me, req, friends, people] = await Promise.all([
+      supabase.from('profiles').select('id,username,display_name,bio,avatar_url').eq('id', current.id).maybeSingle(),
+      supabase.from('friend_requests').select('id,sender_id,receiver_id,status,created_at').or(`sender_id.eq.${current.id},receiver_id.eq.${current.id}`).eq('status', 'pending'),
+      supabase.from('friendships').select('id,user_a,user_b').or(`user_a.eq.${current.id},user_b.eq.${current.id}`),
+      supabase.from('profiles').select('id,username,display_name,bio,avatar_url').neq('id', current.id).order('username').limit(200),
+    ])
+    setDisplayName(me.data?.display_name || current.user_metadata?.display_name || '')
+    setUsername(me.data?.username || current.user_metadata?.username || '')
+    setBio(me.data?.bio || '')
+    if (me.error || req.error || friends.error || people.error) setSocialError('Could not load your social data. Please retry.')
+    setProfiles((people.data || []) as Profile[]); setRequests((req.data || []) as FriendRequest[]); setFriendships((friends.data || []) as Friendship[]); setSocialLoading(false)
+  }, [])
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    setRoom(params.get('room')?.toUpperCase() || '')
-    document.documentElement.classList.add('dark')
-    if (!supabase) { setAuthReady(true); return }
-    supabase.auth.getSession().then(({ data }) => {
-      const sessionName = data.session?.user.user_metadata?.display_name || localStorage.getItem('chat-name') || ''
-      setName(sessionName)
-      setNameInput(sessionName)
-      setAuthReady(true)
-    })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      const sessionName = session?.user.user_metadata?.display_name || ''
-      if (sessionName) { setName(sessionName); setNameInput(sessionName); localStorage.setItem('chat-name', sessionName) }
-      setAuthReady(true)
-    })
-    return () => listener.subscription.unsubscribe()
-  }, [])
+    const params = new URLSearchParams(window.location.search); setRoom(params.get('room')?.toUpperCase() || '')
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => { setUser(data.session?.user || null); setAuthReady(true); if (data.session?.user) loadSocial(data.session.user) })
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); setAuthReady(true); if (session?.user) loadSocial(session.user) })
+    return () => data.subscription.unsubscribe()
+  }, [loadSocial])
 
   useEffect(() => {
     if (!room || !supabase) return
     let active = true
-    supabase.from('chat_messages').select('id, room_id, sender_name, body, reaction, created_at').eq('room_id', room).order('created_at', { ascending: true }).then(({ data }) => {
-      if (!active) return
-      setMessages(prev => mergeMessages(prev, (data as Message[]) || []))
-    })
-    const channel = supabase.channel(`room:${room}`, { config: { presence: { key: name || 'guest' } } })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room}` }, payload => setMessages(prev => mergeMessages(prev, [payload.new as Message])))
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room}` }, payload => setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new as Message : m)))
-      .on('broadcast', { event: 'typing' }, ({ payload }) => { if (payload.name !== name) { setTyping(payload.isTyping); if (payload.isTyping) { setTimeout(() => setTyping(false), 2200) } } })
-      .on('presence', { event: 'sync' }, () => { const state = channel.presenceState<Presence>(); setFriendOnline(Object.keys(state).some(key => key !== (name || 'guest'))) })
-      .subscribe(async status => { if (status === 'SUBSCRIBED') await channel.track({ name: name || 'guest', online_at: new Date().toISOString() }) })
-    channelRef.current = channel
-    return () => { active = false; supabase.removeChannel(channel); channelRef.current = null }
-  }, [room, name])
+    setRoomLoading(true); setRoomError(''); setRoomMessages([])
+    supabase.from('chat_messages').select('id,room_id,sender_name,body,reaction,created_at').eq('room_id', room).order('created_at').then(({ data, error }) => { if (!active) return; if (error) setRoomError('Could not load room messages.'); else setRoomMessages((data || []) as RoomMessage[]); setRoomLoading(false) })
+    const channel = supabase.channel(`room:${room}`).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room}` }, (payload) => setRoomMessages((prev) => payload.eventType === 'DELETE' ? prev.filter((m) => m.id !== (payload.old as RoomMessage).id) : mergeById(prev, [payload.new as RoomMessage]))).subscribe()
+    roomChannel.current = channel
+    return () => { active = false; supabase.removeChannel(channel); roomChannel.current = null }
+  }, [room])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, typing])
+  useEffect(() => {
+    if (!conversation || !supabase) return
+    let active = true
+    setPrivateMessages([])
+    supabase.from('private_messages').select('id,conversation_id,sender_id,body,created_at').eq('conversation_id', conversation.id).order('created_at').then(({ data }) => { if (active) setPrivateMessages((data || []) as PrivateMessage[]) })
+    const channel = supabase.channel(`private:${conversation.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `conversation_id=eq.${conversation.id}` }, (payload) => setPrivateMessages((prev) => mergeById(prev, [payload.new as PrivateMessage]))).subscribe()
+    privateChannel.current = channel
+    return () => { active = false; supabase.removeChannel(channel); privateChannel.current = null }
+  }, [conversation])
 
-  const shareUrl = useMemo(() => room ? `${window.location.origin}?room=${room}` : '', [room])
-  const saveName = async () => {
-    const clean = nameInput.trim().slice(0, 24)
-    if (!clean || !supabase) return
-    setAuthBusy(true); setAuthError('')
-    const result = authMode === 'sign-up'
-      ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { display_name: clean, username: clean.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 24) } } })
-      : await supabase.auth.signInWithPassword({ email: email.trim(), password })
-    if (result.error) setAuthError(result.error.message.includes('Invalid') ? 'Invalid email or password.' : result.error.message)
+  const friends = useMemo(() => profiles.filter((p) => friendships.some((f) => f.user_a === p.id || f.user_b === p.id)), [profiles, friendships])
+  const results = useMemo(() => { const q = search.trim().toLowerCase(); return q ? profiles.filter((p) => p.username.toLowerCase().includes(q) || p.display_name.toLowerCase().includes(q)).slice(0, 8) : [] }, [profiles, search])
+  const otherId = conversation && user ? (conversation.user_a === user.id ? conversation.user_b : conversation.user_a) : ''
+  const other = profiles.find((p) => p.id === otherId)
+
+  const authenticate = async () => {
+    if (!supabase) return; setBusy('auth'); setAuthError('')
+    const result = authMode === 'sign-up' ? await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`, data: { display_name: displayName.trim(), username: username.trim().toLowerCase() } } }) : await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    if (result.error) {
+      const message = result.error.message.toLowerCase()
+      setAuthError(message.includes('invalid') || message.includes('credentials') ? 'Invalid email or password.' : result.error.message)
+    }
     else if (authMode === 'sign-up' && !result.data.session) setAuthError('Check your email to confirm your account, then sign in.')
-    else { setName(clean); localStorage.setItem('chat-name', clean) }
-    setAuthBusy(false)
+    setBusy('')
   }
-  const createRoom = () => { const next = makeRoom(); setRoom(next); window.history.replaceState({}, '', `?room=${next}`); setOpen(true) }
-  const joinRoom = () => { const next = room.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (next) { setRoom(next); window.history.replaceState({}, '', `?room=${next}`); setOpen(true) } }
-  const copyLink = async () => { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1600) }
-  const broadcastTyping = useCallback((isTyping: boolean) => { channelRef.current?.send({ type: 'broadcast', event: 'typing', payload: { name, isTyping } }); }, [name])
-  const sendMessage = async () => { const body = message.trim(); if (!body || !room || !name || !supabase) return; setMessage(''); broadcastTyping(false); const { error } = await supabase.from('chat_messages').insert({ room_id: room, sender_name: name, body }); if (error) console.error('[v0] message send failed', error) }
-  const react = async (id: string, value: string) => { setMessages(prev => prev.map(m => m.id === id ? { ...m, reaction: m.reaction === value ? null : value } : m)); if (supabase) await supabase.from('chat_messages').update({ reaction: value }).eq('id', id) }
+  const saveProfile = async () => { if (!supabase || !user || busy) return; setBusy('profile'); setAuthError(''); const { error } = await supabase.from('profiles').upsert({ id: user.id, username: username.trim().toLowerCase(), display_name: displayName.trim(), bio: bio.trim() }); if (error) setAuthError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please retry.'); else await loadSocial(user); setBusy('') }
+  const sendRequest = async (target: Profile) => { if (!supabase || !user || busy) return; setBusy(target.id); setAuthError(''); const { error } = await supabase.from('friend_requests').insert({ sender_id: user.id, receiver_id: target.id, status: 'pending' }); if (error) setAuthError(error.code === '23505' ? 'A request already exists for this person.' : 'Could not send friend request. Please retry.'); await loadSocial(user); setBusy('') }
+  const requestAction = async (name: 'accept_friend_request' | 'reject_friend_request' | 'cancel_friend_request', id: string) => { if (!supabase || !user) return; setBusy(id); const { error } = await supabase.rpc(name, { p_request_id: id }); if (error) setAuthError(error.message); await loadSocial(user); setBusy('') }
+  const openPrivate = async (target: Profile) => { if (!supabase) return; setBusy(target.id); const { data, error } = await supabase.rpc('create_private_conversation', { p_other_user_id: target.id }); if (error) setAuthError(error.message); else setConversation(data as PrivateConversation); setBusy('') }
+  const sendPrivate = async () => {
+    const body = privateText.trim()
+    if (!supabase || !user || !conversation || !body || busy === 'private-send') return
+    setBusy('private-send')
+    setPrivateText('')
+    const { error } = await supabase.from('private_messages').insert({ conversation_id: conversation.id, sender_id: user.id, body })
+    if (error) {
+      setPrivateText(body)
+      setAuthError('Could not send private message. Please retry.')
+    }
+    setBusy('')
+  }
+  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null) }
+  const joinRoom = () => { const next = room.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (next) { setRoom(next); window.history.replaceState({}, '', `?room=${next}`); setRoomOpen(true) } }
 
-  return <main className="bubble-app min-h-screen overflow-hidden bg-[#020817] text-slate-100 transition-colors dark:bg-[#020817] dark:text-slate-100">
-    <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-10 lg:px-16">
-      <header className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="bubble-gradient grid size-10 place-items-center rounded-2xl text-white shadow-lg shadow-cyan-500/20"><MessageCircle /></div><span className="text-lg font-semibold tracking-tight">Bubble <span className="text-cyan-300">Chat</span></span></div><span className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/80">Always on</span></header>
-      <section className="flex flex-1 flex-col justify-center py-14"><div className="max-w-2xl"><div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"><span className="size-2 rounded-full bg-emerald-400" /> Private rooms. Real-time messages.</div><h1 className="text-5xl font-semibold leading-[1.04] tracking-[-0.06em] sm:text-7xl">Chat anytime,<br /><span className="bubble-text">anywhere.</span></h1><p className="mt-7 max-w-lg text-base leading-7 text-slate-300">Create a room, share the link, and stay connected with your friends.</p><div className="mt-9 flex flex-col gap-3 sm:flex-row"><button onClick={createRoom} className="rounded-xl bg-slate-900 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-900">Create a new room <ArrowUp className="ml-2 inline rotate-45" size={16} /></button><div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"><input aria-label="Room code" value={room} onChange={e => setRoom(e.target.value)} onKeyDown={e => e.key === 'Enter' && joinRoom()} placeholder="Enter room code" className="w-36 bg-transparent px-4 text-sm outline-none placeholder:text-slate-400" /><button onClick={joinRoom} className="border-l border-slate-200 px-4 text-sm font-semibold dark:border-slate-700">Join</button></div></div></div></section>
-      <footer className="flex items-center justify-between border-t border-slate-200 py-5 text-xs text-slate-400 dark:border-slate-800"><span>Small bubble. Big connection.</span><span className="hidden sm:block">Private room messaging</span></footer>
-    </div>
-    <AnimatePresence>{authReady && !name && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-30 grid place-items-center bg-slate-950/70 p-5 backdrop-blur-sm"><motion.form initial={{ y: 18, scale: .97 }} animate={{ y: 0, scale: 1 }} onSubmit={e => { e.preventDefault(); saveName() }} className="w-full max-w-sm rounded-3xl border border-cyan-400/20 bg-slate-900 p-7 text-slate-100 shadow-2xl"><div className="mb-6 grid size-12 place-items-center rounded-2xl bg-slate-800 text-cyan-300"><Users /></div><h2 className="text-2xl font-semibold tracking-tight">{authMode === 'sign-up' ? 'Create your account' : 'Welcome back'}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{authMode === 'sign-up' ? 'Your profile is saved securely for next time.' : 'Sign in to restore your profile and chats.'}</p>{authMode === 'sign-up' && <input autoFocus value={nameInput} onChange={e => setNameInput(e.target.value)} placeholder="Display name" className="mt-6 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-cyan-400" />}<div className="relative mt-3"><Mail className="absolute left-4 top-3.5 text-slate-500" size={17} /><input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3.5 pl-11 pr-4 text-sm outline-none focus:ring-2 focus:ring-cyan-400" /></div><div className="relative mt-3"><Lock className="absolute left-4 top-3.5 text-slate-500" size={17} /><input required minLength={6} type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full rounded-xl border border-slate-700 bg-slate-800 py-3.5 pl-11 pr-4 text-sm outline-none focus:ring-2 focus:ring-cyan-400" /></div>{authError && <p role="alert" className="mt-3 text-sm text-rose-300">{authError}</p>}<button disabled={authBusy} className="mt-4 w-full rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 py-3.5 text-sm font-semibold text-white disabled:opacity-60">{authBusy ? 'Please wait…' : authMode === 'sign-up' ? 'Create account' : 'Sign in'}</button><button type="button" onClick={() => { setAuthMode(authMode === 'sign-up' ? 'sign-in' : 'sign-up'); setAuthError('') }} className="mt-4 w-full text-sm text-cyan-300">{authMode === 'sign-up' ? 'Already have an account? Sign in' : 'Need an account? Create one'}</button></motion.form></motion.div>}</AnimatePresence>
-    <AnimatePresence>{open && room && <motion.div drag dragMomentum={false} onDragStart={() => setDrag(true)} onDragEnd={() => setDrag(false)} initial={{ opacity: 0, y: 24, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24 }} className="fixed bottom-5 right-5 z-20 flex w-[calc(100vw-2.5rem)] max-w-[390px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/15 dark:border-slate-700 dark:bg-slate-900"><div className="flex cursor-grab items-center justify-between border-b border-slate-100 px-5 py-4 active:cursor-grabbing dark:border-slate-800"><div className="flex items-center gap-3"><div className="relative grid size-9 place-items-center rounded-xl bg-slate-100 dark:bg-slate-800"><MessageCircle size={17} /><span className={`absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-white dark:border-slate-900 ${friendOnline ? 'bg-emerald-400' : 'bg-slate-300'}`} /></div><div><div className="text-sm font-semibold">Room {room}</div><div className="text-xs text-slate-400">{friendOnline ? 'Friend is online' : 'Waiting for a friend'}</div></div></div><div className="flex items-center gap-1"><button aria-label="Copy room link" onClick={copyLink} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">{copied ? <Check size={16} /> : <Copy size={16} />}</button><button aria-label="Close chat" onClick={() => setOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={16} /></button></div></div><div className="flex h-[340px] flex-col gap-3 overflow-y-auto bg-slate-50/70 p-4 dark:bg-slate-950/20">{messages.length === 0 && <div className="m-auto text-center text-xs leading-5 text-slate-400">Share the room link to start<br />your first conversation.</div>}{messages.map(m => <div key={m.id} className={`group flex flex-col ${m.sender_name === name ? 'items-end' : 'items-start'}`}><span className="mb-1 px-1 text-[10px] font-medium text-slate-400">{m.sender_name}</span><div className={`relative max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-5 ${m.sender_name === name ? 'rounded-br-md bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'rounded-bl-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>{m.body}<div className="absolute -bottom-3 left-1/2 hidden -translate-x-1/2 gap-1 rounded-full border border-slate-200 bg-white p-1 shadow-sm group-hover:flex dark:border-slate-700 dark:bg-slate-900"><button aria-label="React thumbs up" onClick={() => react(m.id, 'thumbs')}><ThumbsUp size={12} /></button><button aria-label="React heart" onClick={() => react(m.id, 'heart')}><Heart size={12} /></button></div></div>{m.reaction && <span className="mt-1 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] dark:border-slate-700 dark:bg-slate-800">{m.reaction === 'heart' ? '♥' : '👍'}</span>}</div>)}{typing && <div className="text-xs italic text-slate-400">Someone is typing…</div>}<div ref={bottomRef} /></div><div className="border-t border-slate-100 p-3 dark:border-slate-800"><div className="flex items-center gap-2 rounded-2xl bg-slate-100 px-3 py-1.5 dark:bg-slate-800"><input aria-label="Message" value={message} onChange={e => { setMessage(e.target.value); broadcastTyping(e.target.value.length > 0); if (typingTimer.current) clearTimeout(typingTimer.current); typingTimer.current = setTimeout(() => broadcastTyping(false), 1800) }} onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) sendMessage() }} placeholder="Write a message…" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-slate-400" /><button aria-label="Send message" onClick={sendMessage} className="grid size-8 shrink-0 place-items-center rounded-xl bg-slate-900 text-white transition hover:scale-105 dark:bg-white dark:text-slate-900"><Send size={14} /></button></div></div></motion.div>}</AnimatePresence>
-    {!open && room && <button aria-label="Open chat" onClick={() => setOpen(true)} className="bubble-gradient fixed bottom-5 right-5 z-10 grid size-14 place-items-center rounded-full text-white shadow-xl shadow-cyan-500/30 transition hover:scale-105"><MessageCircle /></button>}
+  return <main className="min-h-screen bg-[#020817] text-slate-100"><div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-10 lg:px-16"><header className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="bubble-gradient grid size-10 place-items-center rounded-2xl"><MessageCircle /></div><span className="text-lg font-semibold">Bubble <span className="text-cyan-300">Chat</span></span></div>{user && <button onClick={signOut} className="text-xs text-slate-400">Sign out</button>}</header>
+    <section className="flex flex-1 flex-col justify-center py-10"><div className="max-w-2xl"><div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300"><span className="size-2 rounded-full bg-emerald-400" /> Private rooms. Real-time messages.</div><h1 className="text-5xl font-semibold leading-[1.04] tracking-[-0.06em] sm:text-7xl">Chat anytime,<br /><span className="bubble-text">anywhere.</span></h1><p className="mt-7 max-w-lg text-base leading-7 text-slate-300">Create a room, find friends, and keep private conversations live across your devices.</p><div className="mt-9 flex flex-col gap-3 sm:flex-row"><button onClick={() => { const next = roomCode(); setRoom(next); setRoomOpen(true); window.history.replaceState({}, '', `?room=${next}`) }} className="rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-slate-900">Create a new room <ArrowUp className="ml-2 inline rotate-45" size={16} /></button><div className="flex overflow-hidden rounded-xl border border-slate-700 bg-slate-800"><input aria-label="Room code" value={room} onChange={(e) => setRoom(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) joinRoom() }} placeholder="Enter room code" className="w-36 bg-transparent px-4 text-sm outline-none" /><button onClick={joinRoom} className="border-l border-slate-700 px-4 text-sm font-semibold">Join</button></div></div></div></section>
+    {user && <section className="grid gap-4 pb-8 lg:grid-cols-3">{socialLoading && <p className="lg:col-span-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">Loading your profile and friends...</p>}{socialError && <p role="alert" className="lg:col-span-3 rounded-2xl border border-rose-400/20 bg-rose-950/30 p-4 text-sm text-rose-200">{socialError}</p>}<div className="rounded-3xl border border-slate-800 bg-slate-900 p-5"><div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Your profile</h2><button onClick={saveProfile} className="text-xs text-cyan-300">{busy === 'profile' ? 'Saving...' : 'Save'}</button></div><input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className="mb-2 w-full rounded-xl bg-slate-800 px-3 py-2 text-sm" /><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="display name" className="mb-2 w-full rounded-xl bg-slate-800 px-3 py-2 text-sm" /><textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Short bio" className="h-20 w-full resize-none rounded-xl bg-slate-800 px-3 py-2 text-sm" /></div><div className="rounded-3xl border border-slate-800 bg-slate-900 p-5"><h2 className="mb-3 font-semibold">Find friends</h2><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search username" className="mb-3 w-full rounded-xl bg-slate-800 px-3 py-2 text-sm" />{results.map((p) => <div key={p.id} className="flex items-center justify-between border-b border-slate-800 py-2 text-sm"><span>{p.display_name} <span className="text-slate-500">@{p.username}</span></span><button disabled={!!busy} onClick={() => sendRequest(p)} aria-label={`Add ${p.display_name}`} className="text-cyan-300"><UserPlus size={17} /></button></div>)}<h3 className="mt-4 text-xs uppercase tracking-widest text-slate-500">Requests</h3>{requests.filter((r) => r.receiver_id === user.id).map((r) => <div key={r.id} className="flex items-center justify-between py-2 text-sm"><span>{profiles.find((p) => p.id === r.sender_id)?.display_name || 'Friend request'}</span><span className="flex gap-2"><button onClick={() => requestAction('accept_friend_request', r.id)} className="text-emerald-300">Accept</button><button onClick={() => requestAction('reject_friend_request', r.id)} className="text-rose-300">Reject</button></span></div>)}</div><div className="rounded-3xl border border-slate-800 bg-slate-900 p-5"><h2 className="mb-3 font-semibold">Friends</h2>{friends.length === 0 && <p className="text-sm text-slate-500">Accept a request to start a private chat.</p>}{friends.map((p) => <button key={p.id} onClick={() => openPrivate(p)} className="flex w-full items-center justify-between border-b border-slate-800 py-3 text-left text-sm"><span>{p.display_name}<span className="ml-2 text-slate-500">@{p.username}</span></span><Send size={16} className="text-cyan-300" /></button>)}</div></section>}
+    <footer className="flex items-center justify-between border-t border-slate-800 py-5 text-xs text-slate-500"><span>Small bubble. Big connection.</span><span className="hidden sm:block">Persistent Supabase messaging</span></footer></div>
+    {authReady && !user && supabase && <div className="fixed inset-0 z-30 grid place-items-center bg-slate-950/80 p-5 backdrop-blur-sm"><form onSubmit={(e) => { e.preventDefault(); authenticate() }} className="w-full max-w-sm rounded-3xl border border-cyan-400/20 bg-slate-900 p-7"><div className="mb-5 grid size-12 place-items-center rounded-2xl bg-slate-800 text-cyan-300"><Users /></div><h2 className="text-2xl font-semibold">{authMode === 'sign-up' ? 'Create your account' : 'Welcome back'}</h2>{authMode === 'sign-up' && <><input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="mt-5 w-full rounded-xl bg-slate-800 px-4 py-3" /><input required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="mt-3 w-full rounded-xl bg-slate-800 px-4 py-3" /></>}<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="mt-3 w-full rounded-xl bg-slate-800 px-4 py-3" /><input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="mt-3 w-full rounded-xl bg-slate-800 px-4 py-3" />{authError && <p role="alert" className="mt-3 text-sm text-rose-300">{authError}</p>}<button disabled={busy === 'auth'} className="mt-4 w-full rounded-xl bg-cyan-400 py-3 font-semibold text-slate-950">{busy === 'auth' ? 'Working...' : authMode === 'sign-up' ? 'Create account' : 'Sign in'}</button><button type="button" onClick={() => setAuthMode(authMode === 'sign-up' ? 'sign-in' : 'sign-up')} className="mt-4 w-full text-sm text-slate-400">{authMode === 'sign-up' ? 'Already have an account? Sign in' : 'Need an account? Sign up'}</button></form></div>}
+    {roomOpen && room && <div className="fixed bottom-5 right-5 z-20 w-[calc(100vw-2.5rem)] max-w-[390px] overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl"><div className="flex items-center justify-between border-b border-slate-800 px-5 py-4"><div><div className="font-semibold">Room {room}</div><div className="text-xs text-slate-500">Live room chat</div></div><div className="flex gap-2"><button aria-label="Copy room link" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?room=${room}`); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? <Check size={16} /> : <Copy size={16} />}</button><button aria-label="Close chat" onClick={() => setRoomOpen(false)}><X size={16} /></button></div></div><div className="flex h-72 flex-col gap-2 overflow-y-auto bg-slate-950/30 p-4">{roomLoading && <p className="text-sm text-slate-500">Loading messages...</p>}{roomError && <p role="alert" className="text-sm text-rose-300">{roomError}</p>}{!roomLoading && !roomError && roomMessages.length === 0 && <p className="text-sm text-slate-500">No messages yet. Start the conversation.</p>}{roomMessages.map((m) => <div key={m.id} className="rounded-xl bg-slate-800 px-3 py-2 text-sm"><div className="mb-1 text-[10px] text-cyan-300">{m.sender_name}</div>{m.body}</div>)}</div><form onSubmit={async (e) => { e.preventDefault(); const body = roomText.trim(); if (supabase && user && body) {
+        setRoomText('')
+        const { error } = await supabase.from('chat_messages').insert({ room_id: room, sender_name: displayName || 'Member', body })
+        if (error) setAuthError('Could not send room message. Please retry.')
+      } }} className="flex gap-2 border-t border-slate-800 p-3"><input value={roomText} onChange={(e) => setRoomText(e.target.value)} placeholder="Message room..." className="min-w-0 flex-1 rounded-xl bg-slate-800 px-3 py-2 text-sm" /><button className="text-cyan-300"><Send size={17} /></button></form></div>}
+    {conversation && <div className="fixed bottom-5 left-5 z-20 w-[calc(100vw-2.5rem)] max-w-[390px] overflow-hidden rounded-3xl border border-cyan-400/30 bg-slate-900 shadow-2xl"><div className="flex items-center justify-between border-b border-slate-800 px-5 py-4"><div><div className="font-semibold">{other?.display_name || 'Private chat'}</div><div className="text-xs text-slate-500">Private realtime conversation</div></div><button aria-label="Close private chat" onClick={() => setConversation(null)}><X size={16} /></button></div><div className="flex h-64 flex-col gap-2 overflow-y-auto p-4">{privateMessages.map((m) => <div key={m.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.sender_id === user?.id ? 'ml-auto bg-cyan-400 text-slate-950' : 'bg-slate-800'}`}>{m.body}</div>)}</div><form onSubmit={(e) => { e.preventDefault(); sendPrivate() }} className="flex gap-2 border-t border-slate-800 p-3"><input value={privateText} onChange={(e) => setPrivateText(e.target.value)} placeholder="Private message..." className="min-w-0 flex-1 rounded-xl bg-slate-800 px-3 py-2 text-sm" /><button className="text-cyan-300"><Send size={17} /></button></form></div>}
   </main>
 }
