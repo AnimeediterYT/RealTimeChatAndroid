@@ -67,11 +67,11 @@ public class OverlayService extends Service {
 
   private void createBubble() {
     TextView view = new TextView(this);
-    view.setText("●");
-    view.setTextSize(22);
-    view.setTextColor(Color.WHITE);
+    view.setText("b.");
+    view.setTextSize(25);
+    view.setTextColor(Color.rgb(23, 32, 24));
     view.setGravity(Gravity.CENTER);
-    view.setBackground(background(Color.rgb(91, 76, 220), 100));
+    view.setBackground(background(Color.rgb(200, 243, 107), 100));
     bubble = view;
     bubbleParams = new WindowManager.LayoutParams(68, 68, overlayType(), WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
     bubbleParams.gravity = Gravity.TOP | Gravity.END;
@@ -108,10 +108,10 @@ public class OverlayService extends Service {
     LinearLayout card = new LinearLayout(this);
     card.setOrientation(LinearLayout.VERTICAL);
     card.setPadding(28, 24, 28, 22);
-    card.setBackground(background(Color.rgb(12, 20, 48), 34));
+    card.setBackground(background(Color.rgb(20, 35, 38), 34));
 
     TextView title = new TextView(this);
-    title.setText("dropchat");
+    title.setText("Bubble Chat");
     title.setTextColor(Color.WHITE);
     title.setTextSize(18);
     title.setTypeface(null, 1);
@@ -119,26 +119,26 @@ public class OverlayService extends Service {
 
     TextView status = new TextView(this);
     status.setText("Floating chat is ready");
-    status.setTextColor(Color.LTGRAY);
+    status.setTextColor(Color.rgb(154, 174, 173));
     status.setTextSize(13);
     card.addView(status, new LinearLayout.LayoutParams(-1, 54));
 
     Button open = new Button(this);
     open.setText("Open chat");
-    open.setTextColor(Color.WHITE);
-    open.setBackground(background(Color.rgb(91, 76, 220), 22));
+    open.setTextColor(Color.rgb(23, 32, 24));
+    open.setBackground(background(Color.rgb(200, 243, 107), 22));
     open.setOnClickListener(v -> openApp());
     card.addView(open, new LinearLayout.LayoutParams(-1, 52));
 
     Button minimize = new Button(this);
     minimize.setText("Minimize");
-    minimize.setTextColor(Color.WHITE);
+    minimize.setTextColor(Color.rgb(237, 244, 239));
     minimize.setOnClickListener(v -> hidePanel());
     card.addView(minimize, new LinearLayout.LayoutParams(-1, 52));
 
     TextView close = new TextView(this);
     close.setText("Close floating bubble");
-    close.setTextColor(Color.LTGRAY);
+    close.setTextColor(Color.rgb(154, 174, 173));
     close.setGravity(Gravity.CENTER);
     close.setPadding(0, 18, 0, 0);
     close.setOnClickListener(v -> stopSelf());
