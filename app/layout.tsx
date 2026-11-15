@@ -3,9 +3,9 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: "Bubble Chat — private rooms, no accounts",
+  title: "Bubble Chat | Rooms and private messages",
   description:
-    "Bubble Chat keeps friends connected with instant private rooms, real-time messaging, and a floating chat experience.",
+    "Create live chat rooms, find friends, and keep private conversations in one place with Bubble Chat.",
   generator: "v0.app",
   icons: {
     icon: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: 'dark',
-  themeColor: '#020817',
+  themeColor: '#0b1517',
 }
 
 export default function RootLayout({
