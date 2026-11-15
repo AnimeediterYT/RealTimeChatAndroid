@@ -148,16 +148,147 @@ export default function Page() {
     setRoomLoading(false)
   }
 
-  return <main className="min-h-screen bg-[#020817] text-slate-100"><div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-10 lg:px-16"><header className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="bubble-gradient grid size-10 place-items-center rounded-2xl"><MessageCircle /></div><span className="text-lg font-semibold">Bubble <span className="text-cyan-300">Chat</span></span></div>{user && <button onClick={signOut} className="text-xs text-slate-400">Sign out</button>}</header>
-    <section className="flex flex-1 flex-col justify-center py-10"><div className="max-w-2xl"><div className="mb-5 inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300"><span className="size-2 rounded-full bg-emerald-400" /> Private rooms. Real-time messages.</div><h1 className="text-5xl font-semibold leading-[1.04] tracking-[-0.06em] sm:text-7xl">Chat anytime,<br /><span className="bubble-text">anywhere.</span></h1><p className="mt-7 max-w-lg text-base leading-7 text-slate-300">Create a room, find friends, and keep private conversations live across your devices.</p><div className="mt-9 flex flex-col gap-3 sm:flex-row"><button onClick={createRoom} disabled={roomLoading} className="rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-slate-900">Create a new room <ArrowUp className="ml-2 inline rotate-45" size={16} /></button><div className="flex overflow-hidden rounded-xl border border-slate-700 bg-slate-800"><input aria-label="Room code" value={roomInput} onChange={(e) => setRoomInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) joinRoom() }} placeholder="Enter room code" className="w-36 bg-transparent px-4 text-sm outline-none" /><button onClick={joinRoom} className="border-l border-slate-700 px-4 text-sm font-semibold">Join</button></div></div></div></section>
-    {user && !user.is_anonymous && <section className="grid gap-4 pb-8 lg:grid-cols-3">{socialLoading && <p className="lg:col-span-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">Loading your profile and friends...</p>}{socialError && <p role="alert" className="lg:col-span-3 rounded-2xl border border-rose-400/20 bg-rose-950/30 p-4 text-sm text-rose-200">{socialError}</p>}<div className="rounded-3xl border border-slate-800 bg-slate-900 p-5"><div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">Your profile</h2><button onClick={saveProfile} className="text-xs text-cyan-300">{busy === 'profile' ? 'Saving...' : 'Save'}</button></div><input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className="mb-2 w-full rounded-xl bg-slate-800 px-3 py-2 text-sm" /><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="display name" className="mb-2 w-full rounded-xl bg-slate-800 px-3 py-2 text-sm" /><textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Short bio" className="h-20 w-full resize-none rounded-xl bg-slate-800 px-3 py-2 text-sm" /></div><div className="rounded-3xl border border-slate-800 bg-slate-900 p-5"><h2 className="mb-3 font-semibold">Find friends</h2><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search username" className="mb-3 w-full rounded-xl bg-slate-800 px-3 py-2 text-sm" />{results.map((p) => <div key={p.id} className="flex items-center justify-between border-b border-slate-800 py-2 text-sm"><span>{p.display_name} <span className="text-slate-500">@{p.username}</span></span><button disabled={!!busy} onClick={() => sendRequest(p)} aria-label={`Add ${p.display_name}`} className="text-cyan-300"><UserPlus size={17} /></button></div>)}<h3 className="mt-4 text-xs uppercase tracking-widest text-slate-500">Requests</h3>{requests.filter((r) => r.receiver_id === user.id).map((r) => <div key={r.id} className="flex items-center justify-between py-2 text-sm"><span>{profiles.find((p) => p.id === r.sender_id)?.display_name || 'Friend request'}</span><span className="flex gap-2"><button onClick={() => requestAction('accept_friend_request', r.id)} className="text-emerald-300">Accept</button><button onClick={() => requestAction('reject_friend_request', r.id)} className="text-rose-300">Reject</button></span></div>)}</div><div className="rounded-3xl border border-slate-800 bg-slate-900 p-5"><h2 className="mb-3 font-semibold">Friends</h2>{friends.length === 0 && <p className="text-sm text-slate-500">Accept a request to start a private chat.</p>}{friends.map((p) => <button key={p.id} onClick={() => openPrivate(p)} className="flex w-full items-center justify-between border-b border-slate-800 py-3 text-left text-sm"><span>{p.display_name}<span className="ml-2 text-slate-500">@{p.username}</span></span><Send size={16} className="text-cyan-300" /></button>)}</div></section>}
-    <footer className="flex items-center justify-between border-t border-slate-800 py-5 text-xs text-slate-500"><span>Small bubble. Big connection.</span><span className="hidden sm:block">Persistent Supabase messaging</span></footer></div>
-    {authReady && !user && supabase && <div className="fixed inset-0 z-30 grid place-items-center bg-slate-950/80 p-5 backdrop-blur-sm"><form onSubmit={(e) => { e.preventDefault(); authenticate() }} className="w-full max-w-sm rounded-3xl border border-cyan-400/20 bg-slate-900 p-7"><div className="mb-5 grid size-12 place-items-center rounded-2xl bg-slate-800 text-cyan-300"><Users /></div><h2 className="text-2xl font-semibold">{authMode === 'sign-up' ? 'Create your account' : 'Welcome back'}</h2>{authMode === 'sign-up' && <><input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="mt-5 w-full rounded-xl bg-slate-800 px-4 py-3" /><input required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" className="mt-3 w-full rounded-xl bg-slate-800 px-4 py-3" /></>}<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="mt-3 w-full rounded-xl bg-slate-800 px-4 py-3" /><input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="mt-3 w-full rounded-xl bg-slate-800 px-4 py-3" />{authError && <p role="alert" className="mt-3 text-sm text-rose-300">{authError}</p>}<button type="button" disabled={busy === 'guest' || busy === 'auth'} onClick={async () => { setBusy('guest'); const { error } = await supabase.auth.signInAnonymously(); if (error) setAuthError('Guest access is disabled in Supabase. Enable Authentication → Providers → Anonymous Sign-Ins, then retry.'); setBusy('') }} className="mt-4 w-full rounded-xl border border-slate-700 py-3 text-sm text-slate-200">{busy === 'guest' ? 'Connecting...' : 'Continue as guest'}</button><button disabled={busy === 'auth'} className="mt-4 w-full rounded-xl bg-cyan-400 py-3 font-semibold text-slate-950">{busy === 'auth' ? 'Working...' : authMode === 'sign-up' ? 'Create account' : 'Sign in'}</button><button type="button" onClick={() => setAuthMode(authMode === 'sign-up' ? 'sign-in' : 'sign-up')} className="mt-4 w-full text-sm text-slate-400">{authMode === 'sign-up' ? 'Already have an account? Sign in' : 'Need an account? Sign up'}</button></form></div>}
-    {roomOpen && room && <div className="fixed bottom-5 right-5 z-20 w-[calc(100vw-2.5rem)] max-w-[390px] overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl"><div className="flex items-center justify-between border-b border-slate-800 px-5 py-4"><div><div className="font-semibold">Room {room}</div><div className="text-xs text-slate-500">Live room chat</div></div><div className="flex gap-2"><button aria-label="Copy room link" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?room=${room}`); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? <Check size={16} /> : <Copy size={16} />}</button><button aria-label="Close chat" onClick={() => setRoomOpen(false)}><X size={16} /></button></div></div><div className="flex h-72 flex-col gap-2 overflow-y-auto bg-slate-950/30 p-4">{roomLoading && <p className="text-sm text-slate-500">Loading messages...</p>}{roomError && <p role="alert" className="text-sm text-rose-300">{roomError}</p>}{!roomLoading && !roomError && roomMessages.length === 0 && <p className="text-sm text-slate-500">No messages yet. Start the conversation.</p>}{roomMessages.map((m) => <div key={m.id} className="rounded-xl bg-slate-800 px-3 py-2 text-sm"><div className="mb-1 text-[10px] text-cyan-300">{m.sender_name}</div>{m.body}</div>)}</div><form onSubmit={async (e) => { e.preventDefault(); const body = roomText.trim(); if (supabase && user && body) {
-        setRoomText('')
-        const { error } = await supabase.from('chat_messages').insert({ room_id: room, body })
-        if (error) setAuthError('Could not send room message. Please retry.')
-      } }} className="flex gap-2 border-t border-slate-800 p-3"><input value={roomText} onChange={(e) => setRoomText(e.target.value)} placeholder="Message room..." className="min-w-0 flex-1 rounded-xl bg-slate-800 px-3 py-2 text-sm" /><button className="text-cyan-300"><Send size={17} /></button></form></div>}
-    {conversation && <div className="fixed bottom-5 left-5 z-20 w-[calc(100vw-2.5rem)] max-w-[390px] overflow-hidden rounded-3xl border border-cyan-400/30 bg-slate-900 shadow-2xl"><div className="flex items-center justify-between border-b border-slate-800 px-5 py-4"><div><div className="font-semibold">{other?.display_name || 'Private chat'}</div><div className="text-xs text-slate-500">Private realtime conversation</div></div><button aria-label="Close private chat" onClick={() => setConversation(null)}><X size={16} /></button></div><div className="flex h-64 flex-col gap-2 overflow-y-auto p-4">{privateMessages.map((m) => <div key={m.id} className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.sender_id === user?.id ? 'ml-auto bg-cyan-400 text-slate-950' : 'bg-slate-800'}`}>{m.body}</div>)}</div><form onSubmit={(e) => { e.preventDefault(); sendPrivate() }} className="flex gap-2 border-t border-slate-800 p-3"><input value={privateText} onChange={(e) => setPrivateText(e.target.value)} placeholder="Private message..." className="min-w-0 flex-1 rounded-xl bg-slate-800 px-3 py-2 text-sm" /><button className="text-cyan-300"><Send size={17} /></button></form></div>}
-  </main>
+  return (
+    <main className="bubble-app min-h-dvh text-slate-100">
+      <div className="mx-auto flex min-h-dvh w-full max-w-[1440px] flex-col px-4 pb-24 pt-4 sm:px-7 sm:pt-6 lg:px-10">
+        <header className="flex items-center justify-between border-b border-white/10 pb-4">
+          <a href="/" className="flex items-center gap-3" aria-label="Bubble Chat home">
+            <span className="bubble-mark grid size-10 place-items-center rounded-[15px] text-lg font-bold text-[#07131f]">b.</span>
+            <span className="text-[17px] font-semibold tracking-tight">Bubble <span className="text-[#8de8dc]">Chat</span></span>
+          </a>
+          <div className="flex items-center gap-3">
+            {user && <span className="hidden text-sm text-slate-400 sm:inline">{user.is_anonymous ? 'Guest session' : displayName || user.email}</span>}
+            {user && <button onClick={signOut} className="bubble-quiet-button">Sign out</button>}
+          </div>
+        </header>
+
+        <div className="grid flex-1 gap-7 py-7 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)] lg:gap-10 lg:py-10">
+          <section className="flex flex-col justify-center">
+            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-[#8de8dc]/20 bg-[#8de8dc]/[0.07] px-3 py-1.5 text-xs text-[#a9eee5]">
+              <span className="size-1.5 rounded-full bg-[#8de8dc]" />
+              Rooms stay in sync across devices
+            </div>
+            <h1 className="max-w-[760px] text-[clamp(2.7rem,8vw,5.7rem)] font-semibold leading-[.98] tracking-[-.065em]">
+              Conversations<br /><span className="bubble-heading-accent">without the noise.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-[15px] leading-7 text-slate-400 sm:text-base">
+              Start a room with a code. Find people you know. Keep private chats in one place.
+            </p>
+
+            <div className="bubble-panel mt-8 max-w-2xl p-4 sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold">Start a conversation</h2>
+                  <p className="mt-1 text-xs text-slate-400">Create a room or enter a six-character code.</p>
+                </div>
+                <span className="bubble-icon-chip"><MessageCircle size={18} /></span>
+              </div>
+              <button onClick={createRoom} disabled={roomLoading} className="bubble-primary-button w-full sm:w-auto">
+                {roomLoading ? 'Creating room…' : 'Create a room'} <ArrowUp className="ml-2 inline rotate-45" size={16} />
+              </button>
+              <div className="my-4 flex items-center gap-3 text-[11px] text-slate-500"><span className="h-px flex-1 bg-white/10" />OR JOIN AN EXISTING ROOM<span className="h-px flex-1 bg-white/10" /></div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input aria-label="Room code" value={roomInput} onChange={(e) => setRoomInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) joinRoom() }} placeholder="Enter room code" maxLength={6} className="bubble-input min-w-0 flex-1 tracking-[.18em] uppercase placeholder:tracking-normal placeholder:normal-case" />
+                <button onClick={joinRoom} disabled={roomLoading} className="bubble-secondary-button">Join room</button>
+              </div>
+              {roomError && <p role="alert" className="mt-3 text-sm text-rose-300">{roomError}</p>}
+            </div>
+          </section>
+
+          <aside className="flex flex-col gap-4 lg:justify-center">
+            <div className="bubble-side-panel relative overflow-hidden p-5 sm:p-6">
+              <div className="relative z-10">
+                <span className="text-xs font-medium text-[#9de8df]">BUILT FOR EVERYDAY CHATS</span>
+                <h2 className="mt-3 max-w-xs text-2xl font-semibold leading-tight tracking-tight">A room for the moment. A chat that stays.</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">Share a room link to talk together, or sign in to keep up with friends and private conversations.</p>
+              </div>
+              <div className="bubble-orbit" aria-hidden="true"><span /><span /><span /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bubble-stat"><MessageCircle size={18} className="text-[#9de8df]" /><p className="mt-4 text-sm font-medium">Room chat</p><p className="mt-1 text-xs leading-5 text-slate-500">Join with a short code.</p></div>
+              <div className="bubble-stat"><Users size={18} className="text-[#b9b4ff]" /><p className="mt-4 text-sm font-medium">Private chats</p><p className="mt-1 text-xs leading-5 text-slate-500">Keep conversations close.</p></div>
+            </div>
+          </aside>
+        </div>
+
+        {user && !user.is_anonymous && (
+          <section className="border-t border-white/10 pt-7">
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div><p className="text-xs text-[#9de8df]">YOUR SPACE</p><h2 className="mt-1 text-2xl font-semibold tracking-tight">People and profile</h2></div>
+              <p className="text-xs text-slate-500">Manage your details and open a private chat.</p>
+            </div>
+            {socialLoading && <p className="bubble-panel mb-4 p-4 text-sm text-slate-400">Loading your profile and friends…</p>}
+            {socialError && <p role="alert" className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-950/30 p-4 text-sm text-rose-200">{socialError}</p>}
+            <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr_1fr]">
+              <div className="bubble-panel p-5">
+                <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Your profile</h3><button onClick={saveProfile} disabled={!!busy} className="text-sm font-medium text-[#9de8df]">{busy === 'profile' ? 'Saving…' : 'Save'}</button></div>
+                <label className="bubble-label">Username<input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className="bubble-input mt-1" /></label>
+                <label className="bubble-label mt-3">Display name<input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="bubble-input mt-1" /></label>
+                <label className="bubble-label mt-3">About you<textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A short bio" className="bubble-input mt-1 min-h-24 resize-y" /></label>
+              </div>
+
+              <div className="bubble-panel p-5">
+                <div className="mb-4 flex items-center gap-2"><UserPlus size={18} className="text-[#9de8df]" /><h3 className="font-semibold">Find people</h3></div>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or username" className="bubble-input mb-3" />
+                <div className="space-y-1">
+                  {results.map((p) => <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl px-2 py-2.5 hover:bg-white/[0.04]"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.display_name}</p><p className="truncate text-xs text-slate-500">@{p.username}</p></div><button disabled={!!busy} onClick={() => sendRequest(p)} aria-label={`Add ${p.display_name}`} className="bubble-icon-button"><UserPlus size={16} /></button></div>)}
+                  {search.trim() && results.length === 0 && <p className="py-3 text-sm text-slate-500">No matching people found.</p>}
+                </div>
+                <div className="mt-4 border-t border-white/10 pt-4"><h4 className="mb-2 text-xs font-semibold text-slate-400">Incoming requests</h4>
+                  {requests.filter((r) => r.receiver_id === user.id).map((r) => <div key={r.id} className="flex items-center justify-between gap-2 border-b border-white/[0.06] py-2 text-sm"><span className="min-w-0 truncate">{profiles.find((p) => p.id === r.sender_id)?.display_name || 'Friend request'}</span><span className="flex shrink-0 gap-3"><button onClick={() => requestAction('accept_friend_request', r.id)} className="text-[#9de8df]">Accept</button><button onClick={() => requestAction('reject_friend_request', r.id)} className="text-rose-300">Decline</button></span></div>)}
+                  {requests.filter((r) => r.receiver_id === user.id).length === 0 && <p className="text-xs text-slate-500">No pending requests.</p>}
+                </div>
+              </div>
+
+              <div className="bubble-panel p-5">
+                <div className="mb-4 flex items-center gap-2"><Users size={18} className="text-[#b9b4ff]" /><h3 className="font-semibold">Your friends</h3></div>
+                {friends.length === 0 && <p className="text-sm leading-6 text-slate-500">Friends will appear here. Accept a request to start a private chat.</p>}
+                {friends.map((p) => <button key={p.id} onClick={() => openPrivate(p)} className="flex w-full items-center justify-between gap-3 border-b border-white/[0.07] py-3 text-left"><span className="min-w-0"><span className="block truncate text-sm font-medium">{p.display_name}</span><span className="block truncate text-xs text-slate-500">@{p.username}</span></span><Send size={16} className="shrink-0 text-[#9de8df]" /></button>)}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 py-5 text-xs text-slate-500"><span>Bubble Chat</span><span>Rooms and messages stay connected in real time.</span></footer>
+      </div>
+
+      {authReady && !user && supabase && (
+        <div className="fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-[#050c16]/90 p-4 backdrop-blur-md sm:p-6">
+          <form onSubmit={(e) => { e.preventDefault(); authenticate() }} className="bubble-auth-card my-auto grid w-full max-w-3xl overflow-hidden sm:grid-cols-[.85fr_1fr]">
+            <div className="bubble-auth-aside hidden flex-col justify-between p-7 sm:flex">
+              <span className="flex items-center gap-2 text-sm font-semibold"><span className="bubble-mark grid size-8 place-items-center rounded-xl text-sm text-[#07131f]">b.</span> Bubble Chat</span>
+              <div><p className="text-xs text-[#a9eee5]">YOUR CONVERSATIONS, IN ONE PLACE</p><h2 className="mt-3 text-3xl font-semibold leading-tight tracking-tight">Make room for a good chat.</h2><p className="mt-3 text-sm leading-6 text-slate-400">Sign in to find friends and continue private conversations.</p></div>
+              <span className="text-xs text-slate-500">Simple rooms. Real people.</span>
+            </div>
+            <div className="p-6 sm:p-8">
+              <div className="mb-6"><p className="text-xs text-[#9de8df]">{authMode === 'sign-up' ? 'CREATE AN ACCOUNT' : 'WELCOME BACK'}</p><h2 className="mt-2 text-2xl font-semibold">{authMode === 'sign-up' ? 'Join Bubble Chat' : 'Sign in'}</h2><p className="mt-1 text-sm text-slate-400">Use your email to continue.</p></div>
+              {authMode === 'sign-up' && <><label className="bubble-label">Display name<input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" className="bubble-input mt-1" /></label><label className="bubble-label mt-3">Username<input required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username" className="bubble-input mt-1" /></label></>}
+              <label className="bubble-label mt-3">Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="bubble-input mt-1" /></label>
+              <label className="bubble-label mt-3">Password<input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" className="bubble-input mt-1" /></label>
+              {authError && <p role="alert" className="mt-3 text-sm text-rose-300">{authError}</p>}
+              <button type="button" disabled={busy === 'guest' || busy === 'auth'} onClick={async () => { setBusy('guest'); const { error } = await supabase.auth.signInAnonymously(); if (error) setAuthError('Guest access is disabled in Supabase. Enable Authentication → Providers → Anonymous Sign-Ins, then retry.'); setBusy('') }} className="bubble-secondary-button mt-5 w-full">{busy === 'guest' ? 'Connecting…' : 'Continue as guest'}</button>
+              <button disabled={busy === 'auth'} className="bubble-primary-button mt-3 w-full">{busy === 'auth' ? 'Please wait…' : authMode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
+              <button type="button" onClick={() => { setAuthError(''); setAuthMode(authMode === 'sign-up' ? 'sign-in' : 'sign-up') }} className="mt-5 w-full text-sm text-slate-400 hover:text-white">{authMode === 'sign-up' ? 'Already have an account? Sign in' : 'New to Bubble Chat? Create an account'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {roomOpen && room && (
+        <section aria-label={`Room ${room} chat`} className="bubble-chat-window fixed inset-x-3 bottom-3 z-30 mx-auto flex max-h-[calc(100dvh-1.5rem)] w-auto max-w-[460px] flex-col overflow-hidden sm:inset-x-auto sm:bottom-5 sm:right-5 sm:mx-0 sm:w-[min(460px,calc(100vw-2.5rem))]">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 sm:px-5"><div className="flex min-w-0 items-center gap-3"><span className="bubble-icon-chip"><MessageCircle size={17} /></span><div className="min-w-0"><p className="truncate text-sm font-semibold">Room {room}</p><p className="text-xs text-slate-500">Live room chat</p></div></div><div className="flex gap-1"><button aria-label="Copy room link" className="bubble-icon-button" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?room=${room}`); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? <Check size={16} /> : <Copy size={16} />}</button><button aria-label="Close chat" className="bubble-icon-button" onClick={() => setRoomOpen(false)}><X size={16} /></button></div></div>
+          <div className="flex min-h-0 h-[min(55dvh,520px)] flex-col gap-2 overflow-y-auto p-4 sm:h-[min(58dvh,520px)]">{roomLoading && <p className="text-sm text-slate-500">Loading messages…</p>}{roomError && <p role="alert" className="text-sm text-rose-300">{roomError}</p>}{!roomLoading && !roomError && roomMessages.length === 0 && <p className="my-auto text-center text-sm text-slate-500">No messages yet. Start the conversation.</p>}{roomMessages.map((m) => <div key={m.id} className="max-w-[88%] self-start rounded-2xl rounded-bl-md bg-[#1b2c3c] px-3.5 py-2.5 text-sm leading-6"><p className="mb-1 text-[11px] font-medium text-[#9de8df]">{m.sender_name}</p>{m.body}</div>)}</div>
+          <form onSubmit={async (e) => { e.preventDefault(); const body = roomText.trim(); if (supabase && user && body) { setRoomText(''); const { error } = await supabase.from('chat_messages').insert({ room_id: room, body }); if (error) setAuthError('Could not send room message. Please retry.') } }} className="flex gap-2 border-t border-white/10 p-3"><input value={roomText} onChange={(e) => setRoomText(e.target.value)} placeholder="Write a message…" aria-label="Room message" className="bubble-input min-w-0 flex-1" /><button aria-label="Send room message" className="bubble-send-button"><Send size={17} /></button></form>
+        </section>
+      )}
+
+      {conversation && (
+        <section aria-label="Private conversation" className={`bubble-chat-window fixed inset-x-3 z-30 mx-auto flex max-h-[calc(100dvh-1.5rem)] w-auto max-w-[460px] flex-col overflow-hidden sm:inset-x-auto sm:bottom-5 sm:left-5 sm:mx-0 sm:w-[min(460px,calc(100vw-2.5rem))] ${roomOpen ? 'bottom-[calc(min(55dvh,520px)+5rem)] sm:bottom-5' : 'bottom-3 sm:bottom-5'}`}>
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 sm:px-5"><div className="flex min-w-0 items-center gap-3"><span className="bubble-icon-chip"><Users size={17} /></span><div className="min-w-0"><p className="truncate text-sm font-semibold">{other?.display_name || 'Private chat'}</p><p className="text-xs text-slate-500">Private conversation</p></div></div><button aria-label="Close private chat" className="bubble-icon-button" onClick={() => setConversation(null)}><X size={16} /></button></div>
+          <div className="flex min-h-0 h-[min(48dvh,440px)] flex-col gap-2 overflow-y-auto p-4">{privateMessages.length === 0 && <p className="my-auto text-center text-sm text-slate-500">Start a private conversation.</p>}{privateMessages.map((m) => <div key={m.id} className={`max-w-[86%] rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${m.sender_id === user?.id ? 'ml-auto rounded-br-md bg-[#a8eee3] text-[#0b1a25]' : 'rounded-bl-md bg-[#1b2c3c] text-slate-100'}`}>{m.body}</div>)}</div>
+          <form onSubmit={(e) => { e.preventDefault(); sendPrivate() }} className="flex gap-2 border-t border-white/10 p-3"><input value={privateText} onChange={(e) => setPrivateText(e.target.value)} placeholder="Write a private message…" aria-label="Private message" className="bubble-input min-w-0 flex-1" /><button aria-label="Send private message" className="bubble-send-button"><Send size={17} /></button></form>
+        </section>
+      )}
+    </main>
+  )
 }
