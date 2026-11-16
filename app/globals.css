@@ -47,45 +47,45 @@
 
 :root {
   color-scheme: dark;
-  --background: #0b1517;
-  --foreground: #edf4ef;
-  --card: #142326;
-  --card-foreground: #edf4ef;
-  --popover: #142326;
-  --popover-foreground: #edf4ef;
-  --primary: #c8f36b;
-  --primary-foreground: #172018;
-  --secondary: #203236;
-  --secondary-foreground: #edf4ef;
-  --muted: #203236;
-  --muted-foreground: #9aaead;
-  --accent: #203b3c;
-  --accent-foreground: #d7f5a0;
-  --destructive: #f17c78;
-  --border: #2b4142;
-  --input: #263b3d;
-  --ring: #c8f36b;
-  --chart-1: #c8f36b;
-  --chart-2: #80c9bd;
+  --background: #1e1f22;
+  --foreground: #f2f3f5;
+  --card: #2b2d31;
+  --card-foreground: #f2f3f5;
+  --popover: #2b2d31;
+  --popover-foreground: #f2f3f5;
+  --primary: #5865f2;
+  --primary-foreground: #ffffff;
+  --secondary: #383a40;
+  --secondary-foreground: #f2f3f5;
+  --muted: #383a40;
+  --muted-foreground: #b5bac1;
+  --accent: #404249;
+  --accent-foreground: #dbdeff;
+  --destructive: #ed4245;
+  --border: #3f4147;
+  --input: #383a40;
+  --ring: #5865f2;
+  --chart-1: #5865f2;
+  --chart-2: #a5a6f6;
   --chart-3: #9d9cf5;
   --chart-4: #f2b879;
   --chart-5: #ef8f91;
   --radius: .9rem;
-  --sidebar: #101e20;
-  --sidebar-foreground: #edf4ef;
-  --sidebar-primary: #c8f36b;
-  --sidebar-primary-foreground: #172018;
-  --sidebar-accent: #203b3c;
-  --sidebar-accent-foreground: #d7f5a0;
-  --sidebar-border: #2b4142;
-  --sidebar-ring: #c8f36b;
-  --bubble-ink: #0b1517;
-  --bubble-panel: #142326;
-  --bubble-raised: #1a2d30;
-  --bubble-line: #2b4142;
-  --bubble-muted: #9aaead;
-  --bubble-lime: #c8f36b;
-  --bubble-sea: #80c9bd;
+  --sidebar: #232428;
+  --sidebar-foreground: #f2f3f5;
+  --sidebar-primary: #5865f2;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #404249;
+  --sidebar-accent-foreground: #dbdeff;
+  --sidebar-border: #3f4147;
+  --sidebar-ring: #5865f2;
+  --bubble-ink: #1e1f22;
+  --bubble-panel: #2b2d31;
+  --bubble-raised: #383a40;
+  --bubble-line: #3f4147;
+  --bubble-muted: #b5bac1;
+  --bubble-lime: #5865f2;
+  --bubble-sea: #a5a6f6;
 }
 
 .dark { color-scheme: dark; }
@@ -103,7 +103,7 @@
   button, input, textarea { font: inherit; }
   button { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: .58; }
-  ::selection { color: #172018; background: var(--bubble-lime); }
+  ::selection { color: #ffffff; background: var(--bubble-lime); }
 }
 
 .bubble-app {
@@ -150,7 +150,7 @@
   font-size: .8rem;
   transition: background .18s ease, border-color .18s ease;
 }
-.bubble-app header .bubble-quiet-button:hover { background: var(--bubble-raised); border-color: #55706b; }
+.bubble-app header .bubble-quiet-button:hover { background: var(--bubble-raised); border-color: #7c82ff; }
 
 .bubble-heading-accent { color: var(--bubble-lime); }
 .bubble-app h1 { max-width: 760px; letter-spacing: -.075em; line-height: .99; }
@@ -168,7 +168,7 @@
   min-height: 250px;
   background:
     linear-gradient(120deg, rgba(200,243,107,.09), transparent 54%),
-    #142326;
+    #2b2d31;
 }
 .bubble-side-panel > div:first-child { max-width: 360px; }
 .bubble-side-panel h2 { font-size: clamp(1.55rem, 3vw, 2.2rem); line-height: 1.08; }
@@ -209,18 +209,18 @@
   transition: transform .16s ease, background .16s ease, border-color .16s ease;
 }
 .bubble-primary-button {
-  color: #182019;
+  color: #ffffff;
   background: var(--bubble-lime);
   box-shadow: 0 5px 0 rgba(110,151,43,.18);
 }
-.bubble-primary-button:hover { background: #d5fa87; transform: translateY(-1px); }
+.bubble-primary-button:hover { background: #7983f5; transform: translateY(-1px); }
 .bubble-secondary-button {
-  border: 1px solid #3b5554;
+  border: 1px solid #5865f2;
   color: #e4eee8;
   background: #203538;
 }
-.bubble-secondary-button:hover { border-color: var(--bubble-sea); background: #284346; }
-.bubble-send-button { min-width: 48px; padding: .65rem; color: #172018; background: var(--bubble-lime); }
+.bubble-secondary-button:hover { border-color: var(--bubble-sea); background: #404249; }
+.bubble-send-button { min-width: 48px; padding: .65rem; color: #ffffff; background: var(--bubble-lime); }
 .bubble-icon-button {
   display: inline-grid;
   width: 38px;
@@ -233,7 +233,7 @@
   background: rgba(255,255,255,.025);
   transition: color .16s ease, background .16s ease, border-color .16s ease;
 }
-.bubble-icon-button:hover { color: var(--bubble-lime); border-color: #55706b; background: var(--bubble-raised); }
+.bubble-icon-button:hover { color: var(--bubble-lime); border-color: #7c82ff; background: var(--bubble-raised); }
 
 .bubble-input {
   width: 100%;
@@ -241,8 +241,8 @@
   border: 1px solid #344b4c;
   border-radius: 13px;
   padding: .72rem .85rem;
-  color: #edf4ef;
-  background: #0e1c1e;
+  color: #f2f3f5;
+  background: #232428;
   font-size: .9rem;
   outline: none;
   transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
@@ -255,30 +255,30 @@
 .bubble-auth-card {
   border: 1px solid #31494a;
   border-radius: 26px;
-  background: #142326;
+  background: #2b2d31;
   box-shadow: 0 32px 100px rgba(0,0,0,.48);
 }
 .bubble-auth-aside {
   min-height: 510px;
   background:
     radial-gradient(circle at 82% 22%, rgba(200,243,107,.18), transparent 13rem),
-    linear-gradient(155deg, #203b3c, #102022 72%);
+    linear-gradient(155deg, #404249, #102022 72%);
 }
 .bubble-auth-aside h2 { max-width: 280px; }
 
 .bubble-chat-window {
   border: 1px solid #405858;
   border-radius: 22px;
-  background: #122124;
+  background: #2b2d31;
   box-shadow: 0 28px 90px rgba(0,0,0,.58);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .bubble-chat-window > div:first-child { min-height: 66px; background: rgba(20,35,38,.96); }
-.bubble-chat-window form { background: #142326; }
-.bubble-chat-window .bubble-input { background: #0b1719; }
+.bubble-chat-window form { background: #2b2d31; }
+.bubble-chat-window .bubble-input { background: #232428; }
 .bubble-chat-window [role="alert"] { border-radius: 12px; background: rgba(110,38,42,.2); padding: .65rem .8rem; }
 .bubble-chat-window .rounded-bl-md { border: 1px solid rgba(128,201,189,.12); }
-.bubble-chat-window .bg-\[\#a8eee3\] { background: var(--bubble-lime); color: #172018; }
+.bubble-chat-window .bg-\[\#a8eee3\] { background: var(--bubble-lime); color: #ffffff; }
 .bubble-chat-window .bg-\[\#1b2c3c\] { background: #203638; }
 
 .bubble-app footer { border-color: rgba(154,174,173,.16); }
