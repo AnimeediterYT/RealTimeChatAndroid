@@ -523,3 +523,36 @@ using (
   and (storage.foldername(name))[1] = (select auth.uid())::text
   and coalesce(((select auth.jwt()) ->> 'is_anonymous')::boolean, false) = false
 );
+
+
+-- The application accesses these tables through authenticated Supabase sessions,
+-- including anonymous Auth sessions. No direct anon-role table access is needed.
+revoke all on table public.chat_messages, public.chat_rooms, public.room_memberships from anon;
+grant select, insert on table public.chat_messages to authenticated;
+grant select on table public.chat_rooms to authenticated;
+grant select on table public.room_memberships to authenticated;
+
+-- Keep room history and writes membership-gated, including anonymous Auth sessions.
+drop policy if exists chat_messages_select_by_room on public.chat_messages;
+drop policy if exists chat_messages_insert_public on public.chat_messages;
+drop policy if exists chat_messages_select_member on public.chat_messages;
+drop policy if exists chat_messages_insert_member on public.chat_messages;
+create policy chat_messages_select_member
+on public.chat_messages for select to authenticated
+using (
+  exists (
+    select 1 from public.room_memberships m
+    where m.room_id = chat_messages.room_id
+      and m.user_id = (select auth.uid())
+  )
+);
+create policy chat_messages_insert_member
+on public.chat_messages for insert to authenticated
+with check (
+  sender_id = (select auth.uid())
+  and exists (
+    select 1 from public.room_memberships m
+    where m.room_id = chat_messages.room_id
+      and m.user_id = (select auth.uid())
+  )
+);
