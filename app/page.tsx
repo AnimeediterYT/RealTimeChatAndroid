@@ -172,14 +172,14 @@ export default function Page() {
     setBusy('private-send')
     setAuthError('')
     setPrivateText('')
-    const { error } = await supabase.from('private_messages').insert({ conversation_id: conversation.id, sender_id: user.id, body })
+    const { data: sentMessage, error } = await supabase.from('private_messages').insert({ conversation_id: conversation.id, sender_id: user.id, body }).select('id').single()
     if (error) {
       setPrivateText(body)
       setAuthError(error.message || 'Could not send private message. Please retry.')
     } else {
       const isTestBotConversation = other?.username === 'bubble_test_bot' || Boolean(testBot && (conversation.user_a === testBot.id || conversation.user_b === testBot.id))
       if (isTestBotConversation) {
-        const { data: botReply, error: botError } = await supabase.functions.invoke('friend-test-bot', { body: { action: 'reply', conversation_id: conversation.id } })
+        const { data: botReply, error: botError } = await supabase.functions.invoke('friend-test-bot', { body: { action: 'reply', conversation_id: conversation.id, message_id: sentMessage?.id } })
         if (botError || botReply?.error || botReply?.replied !== true) {
           setAuthError(botReply?.error || botError?.message || 'Your message was sent, but the test bot did not reply. Please retry.')
         }
