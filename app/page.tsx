@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient, type RealtimeChannel, type User } from '@supabase/supabase-js'
-import { ArrowUp, Check, Copy, MessageCircle, Send, UserPlus, Users, X } from 'lucide-react'
+import { ArrowUp, Check, Copy, ImagePlus, MessageCircle, Send, UserPlus, Users, X } from 'lucide-react'
 
 type RoomMessage = { id: string; room_id: string; sender_name: string; body: string; reaction?: string | null; created_at: string }
 type Profile = { id: string; username: string; display_name: string; bio: string; avatar_url?: string | null }
@@ -15,13 +15,13 @@ const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && (process.env.NEXT_PUBLI
   ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '')
   : null
 const mergeById = <T extends { id: string; created_at?: string }>(a: T[], b: T[]) => Array.from(new Map([...a, ...b].map((item) => [item.id, item])).values()).sort((left, right) => (left.created_at || '').localeCompare(right.created_at || ''))
-const roomCode = () => Math.random().toString(36).slice(2, 8).toUpperCase()
+const roomCode = () => { const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; const bytes = crypto.getRandomValues(new Uint8Array(6)); return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('') }
 
 export default function Page() {
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(!supabase)
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up')
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [displayName, setDisplayName] = useState(''); const [username, setUsername] = useState(''); const [bio, setBio] = useState(''); const [authError, setAuthError] = useState(''); const [busy, setBusy] = useState('')
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [displayName, setDisplayName] = useState(''); const [username, setUsername] = useState(''); const [bio, setBio] = useState(''); const [avatarUrl, setAvatarUrl] = useState(''); const [guestName, setGuestName] = useState(''); const [authError, setAuthError] = useState(''); const [busy, setBusy] = useState('')
   const [room, setRoom] = useState(''); const [roomInput, setRoomInput] = useState(''); const [roomOpen, setRoomOpen] = useState(false); const [roomText, setRoomText] = useState(''); const [roomMessages, setRoomMessages] = useState<RoomMessage[]>([]); const [roomLoading, setRoomLoading] = useState(false); const [roomError, setRoomError] = useState(''); const [copied, setCopied] = useState(false)
   const [profiles, setProfiles] = useState<Profile[]>([]); const [requests, setRequests] = useState<FriendRequest[]>([]); const [friendships, setFriendships] = useState<Friendship[]>([]); const [search, setSearch] = useState(''); const [socialLoading, setSocialLoading] = useState(false); const [socialError, setSocialError] = useState('')
   const [conversation, setConversation] = useState<PrivateConversation | null>(null); const [privateMessages, setPrivateMessages] = useState<PrivateMessage[]>([]); const [privateText, setPrivateText] = useState('')
@@ -34,37 +34,48 @@ export default function Page() {
       supabase.from('profiles').select('id,username,display_name,bio,avatar_url').eq('id', current.id).maybeSingle(),
       supabase.from('friend_requests').select('id,sender_id,receiver_id,status,created_at').or(`sender_id.eq.${current.id},receiver_id.eq.${current.id}`).eq('status', 'pending'),
       supabase.from('friendships').select('id,user_a,user_b').or(`user_a.eq.${current.id},user_b.eq.${current.id}`),
-      supabase.from('profiles').select('id,username,display_name,bio,avatar_url').neq('id', current.id).order('username').limit(200),
+      supabase.from('public_profiles').select('id,username,display_name,bio,avatar_url').neq('id', current.id).order('username').limit(200),
     ])
     setDisplayName(me.data?.display_name || current.user_metadata?.display_name || '')
     setUsername(me.data?.username || current.user_metadata?.username || '')
     setBio(me.data?.bio || '')
+    setAvatarUrl(me.data?.avatar_url || '')
     if (me.error || req.error || friends.error || people.error) setSocialError('Could not load your social data. Please retry.')
     setProfiles((people.data || []) as Profile[]); setRequests((req.data || []) as FriendRequest[]); setFriendships((friends.data || []) as Friendship[]); setSocialLoading(false)
   }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search); const requestedRoom = (params.get('room') || '').toUpperCase()
+    const savedGuestName = localStorage.getItem('bubble_guest_display_name') || ''
+    setGuestName(savedGuestName)
     setRoomInput(requestedRoom)
     if (!supabase) return
     supabase.auth.getSession().then(async ({ data }) => {
       let currentUser = data.session?.user || null
-      if (requestedRoom && !currentUser) {
-        const guest = await supabase.auth.signInAnonymously()
-        if (guest.error) setRoomError('Guest access is disabled in Supabase. Enable Authentication → Providers → Anonymous Sign-Ins, then retry.')
-        else currentUser = guest.data.user
-      }
+      if (requestedRoom && !currentUser) setRoomError('Enter a guest display name, then continue as guest to join this room.')
       setUser(currentUser); setAuthReady(true)
       if (currentUser && !currentUser.is_anonymous) loadSocial(currentUser)
       if (requestedRoom && currentUser) {
-        const { error } = await supabase.rpc('join_chat_room', { p_room_id: requestedRoom })
-        if (error) setRoomError('Could not join this room. Check the code and try again.')
-        else { setRoom(requestedRoom); setRoomOpen(true) }
+        if (currentUser.is_anonymous && !savedGuestName.trim()) setRoomError('Enter a guest display name to join this room.')
+        else {
+          const { error } = await supabase.rpc('join_chat_room', { p_room_id: requestedRoom, p_display_name: currentUser.is_anonymous ? savedGuestName.trim() : null })
+          if (error) setRoomError('Could not join this room. Check the code and try again.')
+          else { setRoom(requestedRoom); setRoomOpen(true) }
+        }
       }
     })
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); setAuthReady(true); if (session?.user) loadSocial(session.user) })
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); setAuthReady(true); if (session?.user && !session.user.is_anonymous) loadSocial(session.user) })
     return () => data.subscription.unsubscribe()
   }, [loadSocial])
+
+  useEffect(() => {
+    if (!user || user.is_anonymous || !supabase) return
+    const channel = supabase.channel(`social:${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friend_requests' }, () => loadSocial(user))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => loadSocial(user))
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user, loadSocial])
 
   useEffect(() => {
     if (!room || !supabase) return
@@ -101,7 +112,18 @@ export default function Page() {
     else if (authMode === 'sign-up' && !result.data.session) setAuthError('Check your email to confirm your account, then sign in.')
     setBusy('')
   }
-  const saveProfile = async () => { if (!supabase || !user || busy) return; setBusy('profile'); setAuthError(''); const { error } = await supabase.from('profiles').upsert({ id: user.id, username: username.trim().toLowerCase(), display_name: displayName.trim(), bio: bio.trim() }); if (error) setAuthError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please retry.'); else await loadSocial(user); setBusy('') }
+  const saveProfile = async () => { if (!supabase || !user || user.is_anonymous || busy) return; setBusy('profile'); setAuthError(''); const { error } = await supabase.from('profiles').upsert({ id: user.id, username: username.trim().toLowerCase(), display_name: displayName.trim(), bio: bio.trim(), avatar_url: avatarUrl || null }); if (error) setAuthError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please retry.'); else await loadSocial(user); setBusy('') }
+  const uploadAvatar = async (file?: File) => {
+    if (!supabase || !user || user.is_anonymous || !file || busy) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) { setAuthError('Choose a PNG, JPG, or WebP image under 2 MB.'); return }
+    setBusy('avatar'); setAuthError('')
+    const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+    const path = `${user.id}/${crypto.randomUUID()}.${extension}`
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: false })
+    if (error) setAuthError('Could not upload your profile photo. Please retry.')
+    else { const { data } = supabase.storage.from('avatars').getPublicUrl(path); setAvatarUrl(data.publicUrl); const { error: updateError } = await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id); if (updateError) setAuthError('Photo uploaded, but profile could not be updated. Save your profile to retry.') }
+    setBusy('')
+  }
   const sendRequest = async (target: Profile) => { if (!supabase || !user || busy) return; setBusy(target.id); setAuthError(''); const { error } = await supabase.from('friend_requests').insert({ sender_id: user.id, receiver_id: target.id, status: 'pending' }); if (error) setAuthError(error.code === '23505' ? 'A request already exists for this person.' : 'Could not send friend request. Please retry.'); await loadSocial(user); setBusy('') }
   const requestAction = async (name: 'accept_friend_request' | 'reject_friend_request' | 'cancel_friend_request', id: string) => { if (!supabase || !user) return; setBusy(id); const { error } = await supabase.rpc(name, { p_request_id: id }); if (error) setAuthError(error.message); await loadSocial(user); setBusy('') }
   const openPrivate = async (target: Profile) => { if (!supabase) return; setBusy(target.id); const { data, error } = await supabase.rpc('create_private_conversation', { p_other_user_id: target.id }); if (error) setAuthError(error.message); else setConversation(data as PrivateConversation); setBusy('') }
@@ -120,10 +142,17 @@ export default function Page() {
   const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null) }
   const ensureRoomSession = async () => {
     if (!supabase) return false
+    const name = guestName.trim().slice(0, 24)
     const { data } = await supabase.auth.getSession()
-    if (data.session) return true
+    if (data.session) {
+      if (data.session.user.is_anonymous && !name) { setRoomError('Choose a guest display name before joining a room.'); return false }
+      if (data.session.user.is_anonymous) localStorage.setItem('bubble_guest_display_name', name)
+      return true
+    }
+    if (!name) { setRoomError('Choose a guest display name before joining a room.'); return false }
     const guest = await supabase.auth.signInAnonymously()
     if (guest.error || !guest.data.session) { setRoomError('Guest access is unavailable. Please sign in and retry.'); return false }
+    localStorage.setItem('bubble_guest_display_name', name)
     setUser(guest.data.user); setAuthReady(true)
     return true
   }
@@ -132,7 +161,8 @@ export default function Page() {
     setRoomLoading(true); setRoomError('')
     if (!(await ensureRoomSession())) { setRoomLoading(false); return }
     const next = roomCode()
-    const { error } = await supabase.rpc('create_chat_room', { p_room_id: next })
+    const { data: sessionData } = await supabase.auth.getSession()
+    const { error } = await supabase.rpc('create_chat_room', { p_room_id: next, p_display_name: sessionData.session?.user.is_anonymous ? guestName.trim() : null })
     if (error) setRoomError('Could not create a room. Please retry.')
     else { setRoom(next); setRoomInput(next); setRoomOpen(true); window.history.replaceState({}, '', `?room=${next}`) }
     setRoomLoading(false)
@@ -142,7 +172,8 @@ export default function Page() {
     if (!supabase || !/^[A-Z0-9]{6}$/.test(next) || roomLoading) { setRoomError('Enter a valid six-character room code.'); return }
     setRoomLoading(true); setRoomError('')
     if (!(await ensureRoomSession())) { setRoomLoading(false); return }
-    const { error } = await supabase.rpc('join_chat_room', { p_room_id: next })
+    const { data: sessionData } = await supabase.auth.getSession()
+    const { error } = await supabase.rpc('join_chat_room', { p_room_id: next, p_display_name: sessionData.session?.user.is_anonymous ? guestName.trim() : null })
     if (error) setRoomError('Could not join this room. Check the code and try again.')
     else { setRoom(next); setRoomOpen(true); window.history.replaceState({}, '', `?room=${next}`) }
     setRoomLoading(false)
@@ -154,7 +185,7 @@ export default function Page() {
         <header className="flex items-center justify-between border-b border-white/10 pb-4">
           <a href="/" className="flex items-center gap-3" aria-label="Bubble Chat home">
             <span className="bubble-mark grid size-10 place-items-center rounded-[15px] text-lg font-bold text-[#07131f]">b.</span>
-            <span className="text-[17px] font-semibold tracking-tight">Bubble <span className="text-[#8de8dc]">Chat</span></span>
+            <span className="text-[17px] font-semibold tracking-tight">Bubble <span className="text-[#a5a6f6]">Chat</span></span>
           </a>
           <div className="flex items-center gap-3">
             {user && <span className="hidden text-sm text-slate-400 sm:inline">{user.is_anonymous ? 'Guest session' : displayName || user.email}</span>}
@@ -164,8 +195,8 @@ export default function Page() {
 
         <div className="grid flex-1 gap-7 py-7 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)] lg:gap-10 lg:py-10">
           <section className="flex flex-col justify-center">
-            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-[#8de8dc]/20 bg-[#8de8dc]/[0.07] px-3 py-1.5 text-xs text-[#a9eee5]">
-              <span className="size-1.5 rounded-full bg-[#8de8dc]" />
+            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-[#5865f2]/25 bg-[#5865f2]/[0.10] px-3 py-1.5 text-xs text-[#c5c6ff]">
+              <span className="size-1.5 rounded-full bg-[#5865f2]" />
               Rooms stay in sync across devices
             </div>
             <h1 className="max-w-[760px] text-[clamp(2.7rem,8vw,5.7rem)] font-semibold leading-[.98] tracking-[-.065em]">
@@ -176,6 +207,7 @@ export default function Page() {
             </p>
 
             <div className="bubble-panel mt-8 max-w-2xl p-4 sm:p-6">
+              {user?.is_anonymous && <label className="bubble-label mb-3">Guest display name<input value={guestName} maxLength={24} onChange={(e) => setGuestName(e.target.value.slice(0, 24))} placeholder="Choose the name shown in chat" className="bubble-input mt-1" /></label>}
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold">Start a conversation</h2>
@@ -198,7 +230,7 @@ export default function Page() {
           <aside className="flex flex-col gap-4 lg:justify-center">
             <div className="bubble-side-panel relative overflow-hidden p-5 sm:p-6">
               <div className="relative z-10">
-                <span className="text-xs font-medium text-[#9de8df]">BUILT FOR EVERYDAY CHATS</span>
+                <span className="text-xs font-medium text-[#b9baff]">BUILT FOR EVERYDAY CHATS</span>
                 <h2 className="mt-3 max-w-xs text-2xl font-semibold leading-tight tracking-tight">A room for the moment. A chat that stays.</h2>
                 <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">Share a room link to talk together, or sign in to keep up with friends and private conversations.</p>
               </div>
@@ -206,7 +238,7 @@ export default function Page() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="bubble-stat"><MessageCircle size={18} className="text-[#9de8df]" /><p className="mt-4 text-sm font-medium">Room chat</p><p className="mt-1 text-xs leading-5 text-slate-500">Join with a short code.</p></div>
-              <div className="bubble-stat"><Users size={18} className="text-[#b9b4ff]" /><p className="mt-4 text-sm font-medium">Private chats</p><p className="mt-1 text-xs leading-5 text-slate-500">Keep conversations close.</p></div>
+              <div className="bubble-stat"><Users size={18} className="text-[#9b9cf4]" /><p className="mt-4 text-sm font-medium">Private chats</p><p className="mt-1 text-xs leading-5 text-slate-500">Keep conversations close.</p></div>
             </div>
           </aside>
         </div>
@@ -222,9 +254,10 @@ export default function Page() {
             <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr_1fr]">
               <div className="bubble-panel p-5">
                 <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Your profile</h3><button onClick={saveProfile} disabled={!!busy} className="text-sm font-medium text-[#9de8df]">{busy === 'profile' ? 'Saving…' : 'Save'}</button></div>
+                <div className="mb-4 flex items-center gap-3"><div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border border-white/10 bg-[#273c50] text-lg font-semibold text-[#d7d9ff]">{avatarUrl ? <img src={avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" /> : (displayName || username || 'B').slice(0, 1).toUpperCase()}</div><label className="bubble-secondary-button cursor-pointer"> <ImagePlus size={16} className="mr-2" /> Change photo<input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => uploadAvatar(e.target.files?.[0])} /></label></div>
                 <label className="bubble-label">Username<input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className="bubble-input mt-1" /></label>
                 <label className="bubble-label mt-3">Display name<input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="bubble-input mt-1" /></label>
-                <label className="bubble-label mt-3">About you<textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A short bio" className="bubble-input mt-1 min-h-24 resize-y" /></label>
+                <label className="bubble-label mt-3">About you<textarea maxLength={240} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A short bio" className="bubble-input mt-1 min-h-24 resize-y" /></label>
               </div>
 
               <div className="bubble-panel p-5">
@@ -237,6 +270,9 @@ export default function Page() {
                 <div className="mt-4 border-t border-white/10 pt-4"><h4 className="mb-2 text-xs font-semibold text-slate-400">Incoming requests</h4>
                   {requests.filter((r) => r.receiver_id === user.id).map((r) => <div key={r.id} className="flex items-center justify-between gap-2 border-b border-white/[0.06] py-2 text-sm"><span className="min-w-0 truncate">{profiles.find((p) => p.id === r.sender_id)?.display_name || 'Friend request'}</span><span className="flex shrink-0 gap-3"><button onClick={() => requestAction('accept_friend_request', r.id)} className="text-[#9de8df]">Accept</button><button onClick={() => requestAction('reject_friend_request', r.id)} className="text-rose-300">Decline</button></span></div>)}
                   {requests.filter((r) => r.receiver_id === user.id).length === 0 && <p className="text-xs text-slate-500">No pending requests.</p>}
+                  <h4 className="mb-2 mt-4 text-xs font-semibold text-slate-400">Sent requests</h4>
+                  {requests.filter((r) => r.sender_id === user.id).map((r) => <div key={r.id} className="flex items-center justify-between gap-2 border-b border-white/[0.06] py-2 text-sm"><span className="min-w-0 truncate">{profiles.find((p) => p.id === r.receiver_id)?.display_name || 'Pending request'}</span><button onClick={() => requestAction('cancel_friend_request', r.id)} className="shrink-0 text-xs text-rose-300">Cancel</button></div>)}
+                  {requests.filter((r) => r.sender_id === user.id).length === 0 && <p className="text-xs text-slate-500">No sent requests.</p>}
                 </div>
               </div>
 
@@ -264,9 +300,10 @@ export default function Page() {
               <div className="mb-6"><p className="text-xs text-[#9de8df]">{authMode === 'sign-up' ? 'CREATE AN ACCOUNT' : 'WELCOME BACK'}</p><h2 className="mt-2 text-2xl font-semibold">{authMode === 'sign-up' ? 'Join Bubble Chat' : 'Sign in'}</h2><p className="mt-1 text-sm text-slate-400">Use your email to continue.</p></div>
               {authMode === 'sign-up' && <><label className="bubble-label">Display name<input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" className="bubble-input mt-1" /></label><label className="bubble-label mt-3">Username<input required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username" className="bubble-input mt-1" /></label></>}
               <label className="bubble-label mt-3">Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="bubble-input mt-1" /></label>
-              <label className="bubble-label mt-3">Password<input required minLength={6} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" className="bubble-input mt-1" /></label>
+              <label className="bubble-label mt-3">Password<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" className="bubble-input mt-1" /></label>
               {authError && <p role="alert" className="mt-3 text-sm text-rose-300">{authError}</p>}
-              <button type="button" disabled={busy === 'guest' || busy === 'auth'} onClick={async () => { setBusy('guest'); const { error } = await supabase.auth.signInAnonymously(); if (error) setAuthError('Guest access is disabled in Supabase. Enable Authentication → Providers → Anonymous Sign-Ins, then retry.'); setBusy('') }} className="bubble-secondary-button mt-5 w-full">{busy === 'guest' ? 'Connecting…' : 'Continue as guest'}</button>
+              <label className="bubble-label mt-4">Guest display name<input required maxLength={24} value={guestName} onChange={(e) => setGuestName(e.target.value.slice(0, 24))} placeholder="Name shown in rooms" className="bubble-input mt-1" /></label>
+              <button type="button" disabled={busy === 'guest' || busy === 'auth'} onClick={async () => { const name = guestName.trim(); if (!name) { setAuthError('Choose a guest display name first.'); return } setBusy('guest'); localStorage.setItem('bubble_guest_display_name', name); const { data, error } = await supabase.auth.signInAnonymously(); if (error) setAuthError('Guest access is disabled in Supabase. Enable Authentication → Providers → Anonymous Sign-Ins, then retry.'); else { setUser(data.user); const requestedRoom = (new URLSearchParams(window.location.search).get('room') || '').toUpperCase(); if (requestedRoom) { const { error: joinError } = await supabase.rpc('join_chat_room', { p_room_id: requestedRoom, p_display_name: name }); if (joinError) setRoomError('Could not join this room. Check the code and try again.'); else { setRoom(requestedRoom); setRoomOpen(true) } } } setBusy('') }} className="bubble-secondary-button mt-5 w-full">{busy === 'guest' ? 'Connecting…' : 'Continue as guest'}</button>
               <button disabled={busy === 'auth'} className="bubble-primary-button mt-3 w-full">{busy === 'auth' ? 'Please wait…' : authMode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
               <button type="button" onClick={() => { setAuthError(''); setAuthMode(authMode === 'sign-up' ? 'sign-in' : 'sign-up') }} className="mt-5 w-full text-sm text-slate-400 hover:text-white">{authMode === 'sign-up' ? 'Already have an account? Sign in' : 'New to Bubble Chat? Create an account'}</button>
             </div>
