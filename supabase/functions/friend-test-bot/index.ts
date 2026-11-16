@@ -102,17 +102,19 @@ Deno.serve(async (req: Request) => {
       if (conversationError || !conversation) return json({ error: "Conversation not found" }, 404);
       const participants = [conversation.user_a, conversation.user_b];
       if (!participants.includes(caller.id) || !participants.includes(bot.id)) return json({ error: "Conversation is not between you and the test bot" }, 403);
-      const { data: latest, error: latestError } = await admin.from("private_messages").select("id,sender_id,body").eq("conversation_id", conversationId).eq("sender_id", caller.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const messageId = body?.message_id;
+      if (typeof messageId !== "string") return json({ error: "Message ID is required" }, 400);
+      const { data: latest, error: latestError } = await admin.from("private_messages").select("id,sender_id,body,created_at").eq("id", messageId).eq("conversation_id", conversationId).eq("sender_id", caller.id).maybeSingle();
       if (latestError) throw latestError;
-      if (!latest) return json({ error: "No user message found to reply to" }, 400);
-      const { data: duplicate } = await admin.from("private_messages").select("id").eq("conversation_id", conversationId).eq("sender_id", bot.id).gt("created_at", new Date(Date.now() - 12000).toISOString()).maybeSingle();
+      if (!latest) return json({ error: "The message to reply to was not found" }, 404);
+      const { data: duplicate } = await admin.from("private_messages").select("id").eq("conversation_id", conversationId).eq("sender_id", bot.id).eq("body", "Bubble Chat test reply: " + messageId).maybeSingle();
       if (duplicate) return json({ replied: true, duplicate_suppressed: true });
       const lower = String(latest.body ?? "").toLowerCase();
       let reply = "Test bot here. Your message reached the private conversation. Friend and message checks are working in this preview.";
       if (lower.includes("hello") || lower.includes("hi")) reply = "Hello! I'm the Bubble Chat test bot. This private chat is connected.";
       else if (lower.includes("friend")) reply = "Friend-system check: if we are friends, the request and acceptance flow has completed. You can test unfriending too.";
       else if (lower.includes("help")) reply = "Try sending 'hello', 'friend test', or any message. I reply here so you can test the private chat.";
-      const { error: sendError } = await admin.from("private_messages").insert({ conversation_id: conversationId, sender_id: bot.id, body: reply });
+      const { error: sendError } = await admin.from("private_messages").insert({ conversation_id: conversationId, sender_id: bot.id, body: reply + "\\n\\nBubble Chat test reply: " + messageId });
       if (sendError) throw sendError;
       return json({ replied: true });
     }
