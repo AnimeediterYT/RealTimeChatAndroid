@@ -27,7 +27,7 @@ export default function Page() {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [displayName, setDisplayName] = useState(''); const [username, setUsername] = useState(''); const [bio, setBio] = useState(''); const [avatarUrl, setAvatarUrl] = useState(''); const [guestName, setGuestName] = useState(''); const [authError, setAuthError] = useState(''); const [busy, setBusy] = useState('')
   const [room, setRoom] = useState(''); const [roomInput, setRoomInput] = useState(''); const [roomOpen, setRoomOpen] = useState(false); const [roomText, setRoomText] = useState(''); const [roomMessages, setRoomMessages] = useState<RoomMessage[]>([]); const [roomLoading, setRoomLoading] = useState(false); const [roomError, setRoomError] = useState(''); const [copied, setCopied] = useState(false)
   const [profiles, setProfiles] = useState<Profile[]>([]); const [requests, setRequests] = useState<FriendRequest[]>([]); const [friendships, setFriendships] = useState<Friendship[]>([]); const [search, setSearch] = useState(''); const [socialLoading, setSocialLoading] = useState(false); const [socialError, setSocialError] = useState('')
-  const [conversation, setConversation] = useState<PrivateConversation | null>(null); const [privateMessages, setPrivateMessages] = useState<PrivateMessage[]>([]); const [privateText, setPrivateText] = useState('')
+  const [conversation, setConversation] = useState<PrivateConversation | null>(null); const [conversations, setConversations] = useState<PrivateConversation[]>([]); const [privateMessages, setPrivateMessages] = useState<PrivateMessage[]>([]); const [privateText, setPrivateText] = useState('')
   const [activeView, setActiveView] = useState<'chat' | 'friends' | 'requests' | 'discover' | 'profile'>('chat'); const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]); const [testBot, setTestBot] = useState<Profile | null>(null); const [botLoading, setBotLoading] = useState(false)
   const [roomReactions, setRoomReactions] = useState<MessageReaction[]>([]); const [privateReactions, setPrivateReactions] = useState<MessageReaction[]>([]); const [emojiPicker, setEmojiPicker] = useState<'room' | 'private' | null>(null); const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
   const roomChannel = useRef<RealtimeChannel | null>(null); const privateChannel = useRef<RealtimeChannel | null>(null)
@@ -45,17 +45,19 @@ export default function Page() {
   const loadSocial = useCallback(async (current: User) => {
     if (!supabase) return
     setSocialLoading(true); setSocialError('')
-    const [me, req, friends, people] = await Promise.all([
+    const [me, req, friends, people, recentConversations] = await Promise.all([
       supabase.from('profiles').select('id,username,display_name,bio,avatar_url').eq('id', current.id).maybeSingle(),
       supabase.from('friend_requests').select('id,sender_id,receiver_id,status,created_at').or(`sender_id.eq.${current.id},receiver_id.eq.${current.id}`).eq('status', 'pending'),
       supabase.from('friendships').select('id,user_a,user_b').or(`user_a.eq.${current.id},user_b.eq.${current.id}`),
       supabase.from('public_profiles').select('id,username,display_name,bio,avatar_url').neq('id', current.id).order('username').limit(200),
+      supabase.from('private_conversations').select('id,user_a,user_b').or(`user_a.eq.${current.id},user_b.eq.${current.id}`).order('created_at',{ascending:false}).limit(50),
     ])
     setDisplayName(me.data?.display_name || current.user_metadata?.display_name || '')
     setUsername(me.data?.username || current.user_metadata?.username || '')
     setBio(me.data?.bio || '')
     setAvatarUrl(me.data?.avatar_url || '')
-    if (me.error || req.error || friends.error || people.error) setSocialError('Could not load your social data. Please retry.')
+    if (me.error || req.error || friends.error || people.error || recentConversations.error) setSocialError('Could not load your social data. Please retry.')
+    setConversations((recentConversations.data||[]) as PrivateConversation[])
     setProfiles((people.data || []) as Profile[]); setTestBot(((people.data || []) as Profile[]).find((p) => p.username === 'bubble_test_bot') || null); setRequests((req.data || []) as FriendRequest[]); setFriendships((friends.data || []) as Friendship[]); setSocialLoading(false)
   }, [])
 
@@ -97,7 +99,7 @@ export default function Page() {
     let active = true
     setRoomLoading(true); setRoomError(''); setRoomMessages([]); setRoomReactions([])
     Promise.all([supabase.from('chat_messages').select('id,room_id,sender_name,body,reaction,created_at').eq('room_id', room).order('created_at'), supabase.from('room_memberships').select('user_id,display_name').eq('room_id', room)]).then(async ([messages, members]) => { if (!active) return; if (messages.error) setRoomError('Could not load room messages.'); else { const rows=(messages.data || []) as RoomMessage[]; setRoomMessages(rows); if(rows.length){const {data:reactions}=await supabase.from('chat_message_reactions').select('id,message_id,user_id,emoji').in('message_id',rows.map((m)=>m.id));if(active)setRoomReactions((reactions||[]) as MessageReaction[])} } setRoomMembers((members.data || []) as RoomMember[]); setRoomLoading(false) })
-    const channel = supabase.channel(`room:${room}`).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room}` }, (payload) => setRoomMessages((prev) => payload.eventType === 'DELETE' ? prev.filter((m) => m.id !== (payload.old as RoomMessage).id) : mergeById(prev, [payload.new as RoomMessage]))).on('postgres_changes',{event:'*',schema:'public',table:'chat_message_reactions'},(payload)=>setRoomReactions((prev)=>payload.eventType==='DELETE'?prev.filter((r)=>r.id!==(payload.old as MessageReaction).id):mergeById(prev,[payload.new as MessageReaction]))).subscribe()
+    const channel = supabase.channel(`room:${room}`).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room}` }, (payload) => setRoomMessages((prev) => payload.eventType === 'DELETE' ? prev.filter((m) => m.id !== (payload.old as RoomMessage).id) : mergeById(prev, [payload.new as RoomMessage]))).on('postgres_changes',{event:'*',schema:'public',table:'chat_message_reactions'},(payload)=>setRoomReactions((prev)=>payload.eventType==='DELETE'?prev.filter((r)=>r.id!==(payload.old as MessageReaction).id):mergeById(prev,[payload.new as MessageReaction]))).on('postgres_changes',{event:'*',schema:'public',table:'room_memberships',filter:`room_id=eq.${room}`},()=>{supabase.from('room_memberships').select('user_id,display_name').eq('room_id',room).then(({data})=>setRoomMembers((data||[]) as RoomMember[]))}).subscribe()
     roomChannel.current = channel
     return () => { active = false; supabase.removeChannel(channel); roomChannel.current = null }
   }, [room])
@@ -163,7 +165,7 @@ export default function Page() {
   }
   const sendRequest = async (target: Profile) => { if (!supabase || !user || busy) return; setBusy(target.id); setAuthError(''); const { error } = await supabase.from('friend_requests').insert({ sender_id: user.id, receiver_id: target.id, status: 'pending' }); if (error) setAuthError(error.code === '23505' ? 'A request already exists for this person.' : 'Could not send friend request. Please retry.'); else if (target.username === 'bubble_test_bot') { const { data, error: botError } = await supabase.functions.invoke('friend-test-bot', { body: { action: 'accept-outgoing' } }); if (botError || data?.error) setAuthError(data?.error || 'Your request was sent, but the test bot could not accept it.'); } await loadSocial(user); setBusy('') }
   const requestAction = async (name: 'accept_friend_request' | 'reject_friend_request' | 'cancel_friend_request', id: string) => { if (!supabase || !user) return; setBusy(id); const { error } = await supabase.rpc(name, { p_request_id: id }); if (error) setAuthError(error.message); await loadSocial(user); setBusy('') }
-  const openPrivate = async (target: Profile) => { if (!supabase) return; setBusy(target.id); const { data, error } = await supabase.rpc('create_private_conversation', { p_other_user_id: target.id }); if (error) setAuthError(error.message); else { setConversation(data as PrivateConversation); setRoomOpen(false); setActiveView('chat') } setBusy('') }
+  const openPrivate = async (target: Profile) => { if (!supabase) return; setBusy(target.id); const { data, error } = await supabase.rpc('create_private_conversation', { p_other_user_id: target.id }); if (error) setAuthError(error.message); else { const next=data as PrivateConversation;setConversation(next);setConversations((prev)=>[next,...prev.filter((item)=>item.id!==next.id)]);setRoomOpen(false);setActiveView('chat') } setBusy('') }
   const sendPrivate = async () => {
     const body = privateText.trim()
     if (!supabase || !user || !conversation || !body || busy === 'private-send') return
@@ -187,7 +189,7 @@ export default function Page() {
     else { if (data?.bot) setTestBot(data.bot as Profile); await loadSocial(user); setActiveView(data?.already_friends ? 'friends' : 'requests') }
     setBotLoading(false)
   }
-  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null); setRoomOpen(false); setRoom(''); setRoomMessages([]); setPrivateMessages([]); setActiveView('chat') }
+  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null); setConversations([]); setRoomOpen(false); setRoom(''); setRoomMessages([]); setPrivateMessages([]); setActiveView('chat') }
   const ensureRoomSession = async () => {
     if (!supabase) return false
     const name = guestName.trim().slice(0, 24)
@@ -261,8 +263,8 @@ export default function Page() {
         </div>
         <div className="sidebar-section dm-section">
           <div className="sidebar-heading-row"><p className="sidebar-heading">Direct messages</p><button aria-label="Find friends" onClick={()=>setActiveView('discover')}><Plus size={16}/></button></div>
-          {friends.slice(0,12).map((p)=><button key={p.id} className="dm-link" onClick={()=>openPrivate(p)}><span className="avatar-small">{p.avatar_url?<img src={p.avatar_url} alt=""/>:p.display_name.slice(0,1).toUpperCase()}</span><span className="dm-name">{p.display_name}</span></button>)}
-          {friends.length===0&&<p className="sidebar-empty">Accepted friends appear here.</p>}
+          {conversations.map((item)=>{const id=item.user_a===user?.id?item.user_b:item.user_a;const p=profiles.find((person)=>person.id===id);return <button key={item.id} className="dm-link" onClick={()=>{setConversation(item);setRoomOpen(false);setActiveView('chat')}}><span className="avatar-small">{p?.avatar_url?<img src={p.avatar_url} alt=""/>:(p?.display_name||'F').slice(0,1).toUpperCase()}</span><span className="dm-name">{p?.display_name||'Conversation'}</span></button>})}
+          {conversations.length===0&&<p className="sidebar-empty">Your private conversations will appear here.</p>}
         </div>
         <div className="account-strip">
           <div className="avatar-small account-avatar">{avatarUrl&&!user?.is_anonymous?<img src={avatarUrl} alt=""/>:(displayName||guestName||'B').slice(0,1).toUpperCase()}</div>
