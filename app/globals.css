@@ -332,3 +332,43 @@ button.settings-row:hover{background:#34363d}
 @media(max-width:900px) and (min-width:701px){.server-feature-grid,.decoration-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.server-join-panel{align-items:flex-start;flex-direction:column}.server-join-controls{width:100%}}
 @media(max-width:700px){.server-home-stage{padding:18px 14px 92px}.server-home-hero{padding:24px 19px;border-radius:17px}.server-home-hero h1{font-size:30px}.server-feature-grid,.decoration-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.server-feature-card{min-height:156px;padding:15px}.server-join-panel{align-items:stretch;flex-direction:column;padding:17px}.server-join-controls{width:100%}.shop-feature-banner{margin:15px 0 23px}.shop-banner-mark{width:58px;height:58px;border-radius:18px}.decoration-preview{min-height:125px}.decoration-preview>span{width:64px;height:64px}.decoration-card-copy{padding:11px}.shop-section-heading{align-items:flex-start;flex-direction:column}.shop-free-tag{font-size:9px}}
 @media(max-width:380px){.decoration-grid{grid-template-columns:1fr}.server-home-actions>*{flex:1}}
+
+
+/* Shop layout correction: keep the catalogue in the scrollable content region,
+   not in the fixed-height workspace header. Preserve the existing Discord palette. */
+.shop-stage{width:100%;min-width:0;max-width:1040px;margin:0 auto;padding:clamp(20px,4vw,42px) clamp(14px,3vw,30px) 54px}
+.shop-feature-banner{min-width:0}
+.shop-feature-banner>div{min-width:0}
+.shop-feature-banner h2,.shop-feature-banner p{overflow-wrap:anywhere}
+.decoration-grid{width:100%;min-width:0;grid-template-columns:repeat(3,minmax(0,1fr))}
+.decoration-card{min-width:0}
+.decoration-card-copy{min-width:0}
+.decoration-card-copy strong,.decoration-card-copy p{overflow-wrap:anywhere}
+.decoration-card-copy button{min-width:0;white-space:normal}
+@media(max-width:900px){
+  .shop-stage{padding:22px 18px 96px}
+  .decoration-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:540px){
+  .shop-stage{padding:18px 14px calc(92px + env(safe-area-inset-bottom))}
+  .shop-feature-banner{align-items:flex-start;padding:18px;gap:12px}
+  .shop-feature-banner h2{font-size:22px;line-height:1.2}
+  .shop-feature-banner p{font-size:12px;line-height:1.55}
+  .shop-banner-mark{width:46px;height:46px;flex:0 0 46px;border-radius:14px}
+  .shop-banner-mark svg{width:24px;height:24px}
+  .shop-section-heading{align-items:flex-start;flex-direction:column}
+  .decoration-grid{grid-template-columns:minmax(0,1fr);gap:10px}
+  .decoration-card{display:grid;grid-template-columns:minmax(96px,34%) minmax(0,1fr);align-items:stretch}
+  .decoration-preview{min-height:142px;align-content:center;padding:10px 5px}
+  .decoration-preview>span{width:58px;height:58px;font-size:29px}
+  .decoration-preview small{max-width:100%;overflow-wrap:anywhere;text-align:center;font-size:10px}
+  .decoration-card-copy{display:flex;flex-direction:column;justify-content:center;gap:5px;padding:12px}
+  .decoration-card-copy p{min-height:0;margin:0 0 8px;font-size:11px}
+  .decoration-card-copy button{margin-top:auto;min-height:38px}
+}
+@media(max-width:360px){
+  .shop-feature-banner{flex-direction:column}
+  .decoration-card{grid-template-columns:minmax(0,1fr)}
+  .decoration-preview{min-height:132px}
+  .decoration-card-copy{padding:14px}
+}
