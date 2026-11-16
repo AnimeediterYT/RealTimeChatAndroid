@@ -180,3 +180,85 @@ img{display:block;max-width:100%}
 @media(max-width:1120px){.discord-shell{grid-template-columns:68px 215px minmax(0,1fr)}.details-sidebar{display:none}}
 @media(max-width:700px){.discord-shell{height:100dvh;min-height:480px;grid-template-columns:58px minmax(0,1fr)}.server-rail{padding-top:9px}.rail-logo,.rail-button{width:40px;height:40px}.rail-logo{font-size:19px}.rail-button.is-active:before{left:-9px}.workspace-sidebar{display:none}.workspace-header{height:55px;padding:0 12px}.header-hint{display:none}.conversation-banner{align-items:flex-start;flex-direction:column;padding:17px}.conversation-banner h1{font-size:20px}.message-feed{padding:12px}.message-composer{margin:0 10px 12px}.welcome-stage{padding:26px 18px 80px}.page-stage{padding:24px 14px 88px}.page-intro{align-items:flex-start;flex-direction:column}.page-intro h1{font-size:26px}.person-row{gap:8px}.person-row .discord-primary,.person-row .discord-secondary,.person-row .discord-danger{padding:0 8px;font-size:10px}.test-bot-panel{align-items:flex-start;flex-direction:column}.profile-edit-body{padding:16px}.profile-edit-avatar{width:70px;height:70px;margin-top:-50px}.upload-control{top:14px;right:14px}.mobile-nav{position:fixed;z-index:20;right:0;bottom:0;left:58px;display:flex;justify-content:space-around;padding:7px 3px calc(7px + env(safe-area-inset-bottom));border-top:1px solid #1e1f22;background:#232428}.mobile-nav button{display:grid;justify-items:center;gap:3px;min-width:0;padding:4px 7px;border:0;border-radius:5px;background:transparent;color:#949ba4;font-size:9px}.mobile-nav button.active{color:#fff;background:#404249}.auth-card{padding:22px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+/* Friendly interaction details. Palette remains the existing Discord-inspired set. */
+.workspace-header{background:#313338}
+.workspace-content{scrollbar-gutter:stable}
+.message-feed{scroll-behavior:smooth}
+.message-row{padding:11px 10px;margin:0 -10px;transition:background .14s ease;border-radius:8px}
+.message-row:hover{background:#2e3035}
+.message-avatar{border-radius:14px}
+.message-body p{font-size:13.5px;line-height:1.65}
+.message-meta strong{font-size:13.5px}
+.message-composer{position:relative;align-items:center;min-height:52px;border:1px solid #41434a;border-radius:11px;box-shadow:0 6px 18px #00000012}
+.message-composer:focus-within{border-color:#7983f5;box-shadow:0 0 0 2px #5865f226}
+.message-composer input{padding:7px 2px}
+.message-composer>button.composer-emoji{width:34px;height:34px;flex:0 0 34px;border:0;border-radius:8px;background:transparent;color:#b5bac1;font-size:21px}
+.message-composer>button.composer-emoji:hover{background:#404249;color:#fff}
+.message-composer>button[aria-label="Send room message"],.message-composer>button[aria-label="Send private message"]{width:36px;height:36px;border-radius:9px}
+.message-reactions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.reaction-chip,.reaction-add{display:inline-flex;min-width:34px;min-height:27px;align-items:center;justify-content:center;gap:5px;padding:2px 8px;border:1px solid #454852;border-radius:9px;background:#292b30;color:#dbdee1;font-size:13px}
+.reaction-chip span{font-size:10px;color:#b5bac1}
+.reaction-chip:hover,.reaction-chip.mine{border-color:#7983f5;background:#34375a}
+.reaction-chip.mine span{color:#fff}
+.reaction-add{min-width:27px;padding:2px 7px;color:#b5bac1}
+.emoji-picker{position:absolute;z-index:25;left:8px;bottom:calc(100% + 9px);display:grid;grid-template-columns:repeat(6,38px);gap:4px;padding:9px;border:1px solid #4a4d55;border-radius:11px;background:#232428;box-shadow:0 12px 32px #0007}
+.emoji-picker button{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:8px;background:transparent;font-size:21px}
+.emoji-picker button:hover{background:#404249}
+.conversation-banner{border-radius:0 0 11px 11px}
+.conversation-banner h1{letter-spacing:-.035em}
+.feed-empty{padding:25px 16px}
+.feed-empty h2{font-size:19px;letter-spacing:-.02em}
+.feed-empty p{line-height:1.7}
+.sidebar-link,.dm-link,.person-row,.header-icon,.account-settings{transition:background .14s ease,color .14s ease}
+.sidebar-link,.dm-link{border-radius:8px}
+.person-row{min-height:70px;padding:10px 8px;border-radius:9px}
+.person-row:hover{background:#2e3035}
+.avatar-large{border-radius:14px}
+.profile-editor{border:1px solid #3f4147;border-radius:12px;box-shadow:0 12px 32px #00000012}
+.profile-fields input,.profile-fields textarea{border-radius:8px}
+.auth-card{border-radius:14px}
+.auth-card .form-input{border-radius:8px}
+.discord-primary,.discord-secondary,.discord-danger{min-height:38px;border-radius:8px;transition:background .14s ease,transform .14s ease}
+.discord-primary:active,.discord-secondary:active,.discord-danger:active{transform:translateY(1px)}
+.details-tip,.room-detail-card,.profile-mini,.notice-panel{border-radius:10px}
+.mobile-nav{backdrop-filter:blur(14px)}
+.mobile-nav button{min-width:54px;border-radius:9px}
+.workspace-main{min-height:0}
+@media(min-width:1440px){
+  .discord-shell{grid-template-columns:76px 260px minmax(0,1fr) 270px}
+  .message-feed{padding-right:clamp(28px,5vw,90px);padding-left:clamp(28px,5vw,90px)}
+  .message-composer{max-width:1050px;width:calc(100% - 64px);margin-right:auto;margin-left:auto}
+}
+@media(max-width:900px) and (min-width:701px){
+  .discord-shell{grid-template-columns:64px 205px minmax(0,1fr)}
+  .workspace-sidebar{font-size:12px}
+  .message-feed{padding:14px}
+  .conversation-banner{padding:18px}
+}
+@media(max-width:700px){
+  .discord-shell{grid-template-columns:minmax(0,1fr)}
+  .server-rail{display:none}
+  .workspace-sidebar{display:none}
+  .workspace-header{padding:0 15px}
+  .workspace-content{padding-bottom:68px}
+  .message-feed{padding:12px 13px 18px}
+  .message-composer{margin:0 12px 13px;padding:8px 9px}
+  .message-row{gap:10px;padding:10px 8px;margin:0 -8px}
+  .message-avatar{width:36px;height:36px}
+  .conversation-banner{padding:17px 15px}
+  .conversation-banner h1{font-size:19px}
+  .page-stage{padding:22px 15px 100px}
+  .person-row{flex-wrap:wrap}
+  .person-copy{min-width:110px}
+  .profile-actions{flex-wrap:wrap}
+  .emoji-picker{grid-template-columns:repeat(6,36px);left:4px}
+}
+@media(hover:none) and (pointer:coarse){
+  .sidebar-link,.dm-link,.mobile-nav button,.header-icon,.account-settings{min-height:42px}
+  .reaction-chip,.reaction-add{min-height:34px}
+  .message-composer>button.composer-emoji{width:40px;height:40px;flex-basis:40px}
+}
+@media(prefers-reduced-motion:reduce){
+  .message-feed{scroll-behavior:auto}
+}
