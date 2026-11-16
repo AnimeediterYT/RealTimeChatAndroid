@@ -112,6 +112,13 @@ export default function Page() {
     else if (authMode === 'sign-up' && !result.data.session) setAuthError('Check your email to confirm your account, then sign in.')
     setBusy('')
   }
+  const sendPasswordReset = async () => {
+    if (!supabase || !email.trim()) { setAuthError('Enter your email address first.'); return }
+    setBusy('reset'); setAuthError('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/auth/update-password` })
+    setAuthError(error ? 'Could not send a password reset email. Check the address and retry.' : 'If an account exists for that email, a password reset link has been sent.')
+    setBusy('')
+  }
   const saveProfile = async () => { if (!supabase || !user || user.is_anonymous || busy) return; setBusy('profile'); setAuthError(''); const { error } = await supabase.from('profiles').upsert({ id: user.id, username: username.trim().toLowerCase(), display_name: displayName.trim(), bio: bio.trim(), avatar_url: avatarUrl || null }); if (error) setAuthError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please retry.'); else await loadSocial(user); setBusy('') }
   const uploadAvatar = async (file?: File) => {
     if (!supabase || !user || user.is_anonymous || !file || busy) return
@@ -301,6 +308,7 @@ export default function Page() {
               {authMode === 'sign-up' && <><label className="bubble-label">Display name<input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" className="bubble-input mt-1" /></label><label className="bubble-label mt-3">Username<input required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username" className="bubble-input mt-1" /></label></>}
               <label className="bubble-label mt-3">Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="bubble-input mt-1" /></label>
               <label className="bubble-label mt-3">Password<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" className="bubble-input mt-1" /></label>
+              {authMode === 'sign-in' && <button type="button" disabled={!!busy} onClick={sendPasswordReset} className="mt-3 text-left text-xs text-[#b9baff] hover:text-white">{busy === 'reset' ? 'Sending reset link…' : 'Forgot password?'}</button>}
               {authError && <p role="alert" className="mt-3 text-sm text-rose-300">{authError}</p>}
               <label className="bubble-label mt-4">Guest display name<input required maxLength={24} value={guestName} onChange={(e) => setGuestName(e.target.value.slice(0, 24))} placeholder="Name shown in rooms" className="bubble-input mt-1" /></label>
               <button type="button" disabled={busy === 'guest' || busy === 'auth'} onClick={async () => { const name = guestName.trim(); if (!name) { setAuthError('Choose a guest display name first.'); return } setBusy('guest'); localStorage.setItem('bubble_guest_display_name', name); const { data, error } = await supabase.auth.signInAnonymously(); if (error) setAuthError('Guest access is disabled in Supabase. Enable Authentication → Providers → Anonymous Sign-Ins, then retry.'); else { setUser(data.user); const requestedRoom = (new URLSearchParams(window.location.search).get('room') || '').toUpperCase(); if (requestedRoom) { const { error: joinError } = await supabase.rpc('join_chat_room', { p_room_id: requestedRoom, p_display_name: name }); if (joinError) setRoomError('Could not join this room. Check the code and try again.'); else { setRoom(requestedRoom); setRoomOpen(true) } } } setBusy('') }} className="bubble-secondary-button mt-5 w-full">{busy === 'guest' ? 'Connecting…' : 'Continue as guest'}</button>
