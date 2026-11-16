@@ -135,7 +135,7 @@ export default function Page() {
   }
   const sendRequest = async (target: Profile) => { if (!supabase || !user || busy) return; setBusy(target.id); setAuthError(''); const { error } = await supabase.from('friend_requests').insert({ sender_id: user.id, receiver_id: target.id, status: 'pending' }); if (error) setAuthError(error.code === '23505' ? 'A request already exists for this person.' : 'Could not send friend request. Please retry.'); else if (target.username === 'bubble_test_bot') { const { data, error: botError } = await supabase.functions.invoke('friend-test-bot', { body: { action: 'accept-outgoing' } }); if (botError || data?.error) setAuthError(data?.error || 'Your request was sent, but the test bot could not accept it.'); } await loadSocial(user); setBusy('') }
   const requestAction = async (name: 'accept_friend_request' | 'reject_friend_request' | 'cancel_friend_request', id: string) => { if (!supabase || !user) return; setBusy(id); const { error } = await supabase.rpc(name, { p_request_id: id }); if (error) setAuthError(error.message); await loadSocial(user); setBusy('') }
-  const openPrivate = async (target: Profile) => { if (!supabase) return; setBusy(target.id); const { data, error } = await supabase.rpc('create_private_conversation', { p_other_user_id: target.id }); if (error) setAuthError(error.message); else { setConversation(data as PrivateConversation); setActiveView('chat') } setBusy('') }
+  const openPrivate = async (target: Profile) => { if (!supabase) return; setBusy(target.id); const { data, error } = await supabase.rpc('create_private_conversation', { p_other_user_id: target.id }); if (error) setAuthError(error.message); else { setConversation(data as PrivateConversation); setRoomOpen(false); setActiveView('chat') } setBusy('') }
   const sendPrivate = async () => {
     const body = privateText.trim()
     if (!supabase || !user || !conversation || !body || busy === 'private-send') return
@@ -159,7 +159,7 @@ export default function Page() {
     else { if (data?.bot) setTestBot(data.bot as Profile); await loadSocial(user); setActiveView(data?.already_friends ? 'friends' : 'requests') }
     setBotLoading(false)
   }
-  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null) }
+  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null); setRoomOpen(false); setRoom(''); setRoomMessages([]); setPrivateMessages([]); setActiveView('chat') }
   const ensureRoomSession = async () => {
     if (!supabase) return false
     const name = guestName.trim().slice(0, 24)
