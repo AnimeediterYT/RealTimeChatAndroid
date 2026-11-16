@@ -67,7 +67,139 @@ export default function Page() {
       }
     })
     const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); setAuthReady(true); if (session?.user && !session.user.is_anonymous) loadSocial(session.user) })
-    return (
+    return () => data.subscription.unsubscribe()
+  }, [loadSocial])
+
+  useEffect(() => {
+    if (!user || user.is_anonymous || !supabase) return
+    const channel = supabase.channel(`social:${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friend_requests' }, () => loadSocial(user))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => loadSocial(user))
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user, loadSocial])
+
+  useEffect(() => {
+    if (!room || !supabase) return
+    let active = true
+    setRoomLoading(true); setRoomError(''); setRoomMessages([])
+    Promise.all([supabase.from('chat_messages').select('id,room_id,sender_name,body,reaction,created_at').eq('room_id', room).order('created_at'), supabase.from('room_memberships').select('user_id,display_name').eq('room_id', room)]).then(([messages, members]) => { if (!active) return; if (messages.error) setRoomError('Could not load room messages.'); else setRoomMessages((messages.data || []) as RoomMessage[]); setRoomMembers((members.data || []) as RoomMember[]); setRoomLoading(false) })
+    const channel = supabase.channel(`room:${room}`).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${room}` }, (payload) => setRoomMessages((prev) => payload.eventType === 'DELETE' ? prev.filter((m) => m.id !== (payload.old as RoomMessage).id) : mergeById(prev, [payload.new as RoomMessage]))).subscribe()
+    roomChannel.current = channel
+    return () => { active = false; supabase.removeChannel(channel); roomChannel.current = null }
+  }, [room])
+
+  useEffect(() => {
+    if (!conversation || !supabase) return
+    let active = true
+    setPrivateMessages([])
+    supabase.from('private_messages').select('id,conversation_id,sender_id,body,created_at').eq('conversation_id', conversation.id).order('created_at').then(({ data }) => { if (active) setPrivateMessages((data || []) as PrivateMessage[]) })
+    const channel = supabase.channel(`private:${conversation.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages', filter: `conversation_id=eq.${conversation.id}` }, (payload) => setPrivateMessages((prev) => mergeById(prev, [payload.new as PrivateMessage]))).subscribe()
+    privateChannel.current = channel
+    return () => { active = false; supabase.removeChannel(channel); privateChannel.current = null }
+  }, [conversation])
+
+  const friends = useMemo(() => user ? profiles.filter((p) => friendships.some((f) => (f.user_a === user.id && f.user_b === p.id) || (f.user_b === user.id && f.user_a === p.id))) : [], [profiles, friendships, user])
+  const results = useMemo(() => { const q = search.trim().toLowerCase(); return q ? profiles.filter((p) => p.username.toLowerCase().includes(q) || p.display_name.toLowerCase().includes(q)).slice(0, 8) : [] }, [profiles, search])
+  const otherId = conversation && user ? (conversation.user_a === user.id ? conversation.user_b : conversation.user_a) : ''
+  const other = profiles.find((p) => p.id === otherId)
+
+  const authenticate = async () => {
+    if (!supabase) return; setBusy('auth'); setAuthError('')
+    const result = authMode === 'sign-up' ? await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`, data: { display_name: displayName.trim(), username: username.trim().toLowerCase() } } }) : await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    if (result.error) {
+      const message = result.error.message.toLowerCase()
+      setAuthError(message.includes('invalid') || message.includes('credentials') ? 'Invalid email or password.' : result.error.message)
+    }
+    else if (authMode === 'sign-up' && !result.data.session) setAuthError('Check your email to confirm your account, then sign in.')
+    setBusy('')
+  }
+  const sendPasswordReset = async () => {
+    if (!supabase || !email.trim()) { setAuthError('Enter your email address first.'); return }
+    setBusy('reset'); setAuthError('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/auth/update-password` })
+    setAuthError(error ? 'Could not send a password reset email. Check the address and retry.' : 'If an account exists for that email, a password reset link has been sent.')
+    setBusy('')
+  }
+  const saveProfile = async () => { if (!supabase || !user || user.is_anonymous || busy) return; setBusy('profile'); setAuthError(''); const { error } = await supabase.from('profiles').upsert({ id: user.id, username: username.trim().toLowerCase(), display_name: displayName.trim(), bio: bio.trim(), avatar_url: avatarUrl || null }); if (error) setAuthError(error.code === '23505' ? 'That username is already taken.' : 'Could not save your profile. Please retry.'); else await loadSocial(user); setBusy('') }
+  const uploadAvatar = async (file?: File) => {
+    if (!supabase || !user || user.is_anonymous || !file || busy) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) { setAuthError('Choose a PNG, JPG, or WebP image under 2 MB.'); return }
+    setBusy('avatar'); setAuthError('')
+    const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+    const path = `${user.id}/${crypto.randomUUID()}.${extension}`
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: false })
+    if (error) setAuthError('Could not upload your profile photo. Please retry.')
+    else { const { data } = supabase.storage.from('avatars').getPublicUrl(path); setAvatarUrl(data.publicUrl); const { error: updateError } = await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id); if (updateError) setAuthError('Photo uploaded, but profile could not be updated. Save your profile to retry.') }
+    setBusy('')
+  }
+  const sendRequest = async (target: Profile) => { if (!supabase || !user || busy) return; setBusy(target.id); setAuthError(''); const { error } = await supabase.from('friend_requests').insert({ sender_id: user.id, receiver_id: target.id, status: 'pending' }); if (error) setAuthError(error.code === '23505' ? 'A request already exists for this person.' : 'Could not send friend request. Please retry.'); else if (target.username === 'bubble_test_bot') { const { data, error: botError } = await supabase.functions.invoke('friend-test-bot', { body: { action: 'accept-outgoing' } }); if (botError || data?.error) setAuthError(data?.error || 'Your request was sent, but the test bot could not accept it.'); } await loadSocial(user); setBusy('') }
+  const requestAction = async (name: 'accept_friend_request' | 'reject_friend_request' | 'cancel_friend_request', id: string) => { if (!supabase || !user) return; setBusy(id); const { error } = await supabase.rpc(name, { p_request_id: id }); if (error) setAuthError(error.message); await loadSocial(user); setBusy('') }
+  const openPrivate = async (target: Profile) => { if (!supabase) return; setBusy(target.id); const { data, error } = await supabase.rpc('create_private_conversation', { p_other_user_id: target.id }); if (error) setAuthError(error.message); else { setConversation(data as PrivateConversation); setActiveView('chat') } setBusy('') }
+  const sendPrivate = async () => {
+    const body = privateText.trim()
+    if (!supabase || !user || !conversation || !body || busy === 'private-send') return
+    setBusy('private-send')
+    setPrivateText('')
+    const { error } = await supabase.from('private_messages').insert({ conversation_id: conversation.id, sender_id: user.id, body })
+    if (error) {
+      setPrivateText(body)
+      setAuthError('Could not send private message. Please retry.')
+    } else if (testBot && (conversation.user_a === testBot.id || conversation.user_b === testBot.id)) {
+      const { error: botError } = await supabase.functions.invoke('friend-test-bot', { body: { action: 'reply', conversation_id: conversation.id } })
+      if (botError) setAuthError('Your message was sent, but the test bot could not reply.')
+    }
+    setBusy('')
+  }
+  const inviteTestBot = async () => {
+    if (!supabase || !user || user.is_anonymous || botLoading) return
+    setBotLoading(true); setSocialError('')
+    const { data, error } = await supabase.functions.invoke('friend-test-bot', { body: { action: 'invite' } })
+    if (error || data?.error) setSocialError(data?.error || 'Could not contact the test bot.')
+    else { if (data?.bot) setTestBot(data.bot as Profile); await loadSocial(user); setActiveView(data?.already_friends ? 'friends' : 'requests') }
+    setBotLoading(false)
+  }
+  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null) }
+  const ensureRoomSession = async () => {
+    if (!supabase) return false
+    const name = guestName.trim().slice(0, 24)
+    const { data } = await supabase.auth.getSession()
+    if (data.session) {
+      if (data.session.user.is_anonymous && !name) { setRoomError('Choose a guest display name before joining a room.'); return false }
+      if (data.session.user.is_anonymous) localStorage.setItem('bubble_guest_display_name', name)
+      return true
+    }
+    if (!name) { setRoomError('Choose a guest display name before joining a room.'); return false }
+    const guest = await supabase.auth.signInAnonymously()
+    if (guest.error || !guest.data.session) { setRoomError('Guest access is unavailable. Please sign in and retry.'); return false }
+    localStorage.setItem('bubble_guest_display_name', name)
+    setUser(guest.data.user); setAuthReady(true)
+    return true
+  }
+  const createRoom = async () => {
+    if (!supabase || roomLoading) return
+    setRoomLoading(true); setRoomError('')
+    if (!(await ensureRoomSession())) { setRoomLoading(false); return }
+    const next = roomCode()
+    const { data: sessionData } = await supabase.auth.getSession()
+    const { error } = await supabase.rpc('create_chat_room', { p_room_id: next, p_display_name: sessionData.session?.user.is_anonymous ? guestName.trim() : null })
+    if (error) setRoomError('Could not create a room. Please retry.')
+    else { setRoom(next); setRoomInput(next); setRoomOpen(true); window.history.replaceState({}, '', `?room=${next}`) }
+    setRoomLoading(false)
+  }
+  const joinRoom = async () => {
+    const next = roomInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (!supabase || !/^[A-Z0-9]{6}$/.test(next) || roomLoading) { setRoomError('Enter a valid six-character room code.'); return }
+    setRoomLoading(true); setRoomError('')
+    if (!(await ensureRoomSession())) { setRoomLoading(false); return }
+    const { data: sessionData } = await supabase.auth.getSession()
+    const { error } = await supabase.rpc('join_chat_room', { p_room_id: next, p_display_name: sessionData.session?.user.is_anonymous ? guestName.trim() : null })
+    if (error) setRoomError('Could not join this room. Check the code and try again.')
+    else { setRoom(next); setRoomOpen(true); window.history.replaceState({}, '', `?room=${next}`) }
+    setRoomLoading(false)
+  }
+
+  return (
     <main className="discord-shell">
       <aside className="server-rail" aria-label="Workspace navigation">
         <a href="/" className="rail-logo" aria-label="Bubble Chat">b.</a>
@@ -188,6 +320,155 @@ export default function Page() {
         <button disabled={busy==='auth'} className="discord-primary full-width">{busy==='auth'?'Please wait…':authMode==='sign-up'?'Create account':'Sign in'}</button>
         <button type="button" onClick={()=>{setAuthError('');setAuthMode(authMode==='sign-up'?'sign-in':'sign-up')}} className="auth-switch">{authMode==='sign-up'?'Already have an account? Sign in':'New to Bubble Chat? Create an account'}</button>
       </form></div>}
+    </main>
+  )
+
+      <div className="mx-auto flex min-h-dvh w-full max-w-[1440px] flex-col px-4 pb-24 pt-4 sm:px-7 sm:pt-6 lg:px-10">
+        <header className="flex items-center justify-between border-b border-white/10 pb-4">
+          <a href="/" className="flex items-center gap-3" aria-label="Bubble Chat home">
+            <span className="bubble-mark grid size-10 place-items-center rounded-[15px] text-lg font-bold text-[#07131f]">b.</span>
+            <span className="text-[17px] font-semibold tracking-tight">Bubble <span className="text-[#a5a6f6]">Chat</span></span>
+          </a>
+          <div className="flex items-center gap-3">
+            {user && <span className="hidden text-sm text-slate-400 sm:inline">{user.is_anonymous ? 'Guest session' : displayName || user.email}</span>}
+            {user && <button onClick={signOut} className="bubble-quiet-button">Sign out</button>}
+          </div>
+        </header>
+
+        <div className="grid flex-1 gap-7 py-7 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)] lg:gap-10 lg:py-10">
+          <section className="flex flex-col justify-center">
+            <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-[#5865f2]/25 bg-[#5865f2]/[0.10] px-3 py-1.5 text-xs text-[#c5c6ff]">
+              <span className="size-1.5 rounded-full bg-[#5865f2]" />
+              Rooms stay in sync across devices
+            </div>
+            <h1 className="max-w-[760px] text-[clamp(2.7rem,8vw,5.7rem)] font-semibold leading-[.98] tracking-[-.065em]">
+              Conversations<br /><span className="bubble-heading-accent">without the noise.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-[15px] leading-7 text-slate-400 sm:text-base">
+              Start a room with a code. Find people you know. Keep private chats in one place.
+            </p>
+
+            <div className="bubble-panel mt-8 max-w-2xl p-4 sm:p-6">
+              {user?.is_anonymous && <label className="bubble-label mb-3">Guest display name<input value={guestName} maxLength={24} onChange={(e) => setGuestName(e.target.value.slice(0, 24))} placeholder="Choose the name shown in chat" className="bubble-input mt-1" /></label>}
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold">Start a conversation</h2>
+                  <p className="mt-1 text-xs text-slate-400">Create a room or enter a six-character code.</p>
+                </div>
+                <span className="bubble-icon-chip"><MessageCircle size={18} /></span>
+              </div>
+              <button onClick={createRoom} disabled={roomLoading} className="bubble-primary-button w-full sm:w-auto">
+                {roomLoading ? 'Creating room…' : 'Create a room'} <ArrowUp className="ml-2 inline rotate-45" size={16} />
+              </button>
+              <div className="my-4 flex items-center gap-3 text-[11px] text-slate-500"><span className="h-px flex-1 bg-white/10" />OR JOIN AN EXISTING ROOM<span className="h-px flex-1 bg-white/10" /></div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input aria-label="Room code" value={roomInput} onChange={(e) => setRoomInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) joinRoom() }} placeholder="Enter room code" maxLength={6} className="bubble-input min-w-0 flex-1 tracking-[.18em] uppercase placeholder:tracking-normal placeholder:normal-case" />
+                <button onClick={joinRoom} disabled={roomLoading} className="bubble-secondary-button">Join room</button>
+              </div>
+              {roomError && <p role="alert" className="mt-3 text-sm text-rose-300">{roomError}</p>}
+            </div>
+          </section>
+
+          <aside className="flex flex-col gap-4 lg:justify-center">
+            <div className="bubble-side-panel relative overflow-hidden p-5 sm:p-6">
+              <div className="relative z-10">
+                <span className="text-xs font-medium text-[#b9baff]">BUILT FOR EVERYDAY CHATS</span>
+                <h2 className="mt-3 max-w-xs text-2xl font-semibold leading-tight tracking-tight">A room for the moment. A chat that stays.</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-400">Share a room link to talk together, or sign in to keep up with friends and private conversations.</p>
+              </div>
+              <div className="bubble-orbit" aria-hidden="true"><span /><span /><span /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bubble-stat"><MessageCircle size={18} className="text-[#9de8df]" /><p className="mt-4 text-sm font-medium">Room chat</p><p className="mt-1 text-xs leading-5 text-slate-500">Join with a short code.</p></div>
+              <div className="bubble-stat"><Users size={18} className="text-[#9b9cf4]" /><p className="mt-4 text-sm font-medium">Private chats</p><p className="mt-1 text-xs leading-5 text-slate-500">Keep conversations close.</p></div>
+            </div>
+          </aside>
+        </div>
+
+        {user && !user.is_anonymous && (
+          <section className="border-t border-white/10 pt-7">
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div><p className="text-xs text-[#9de8df]">YOUR SPACE</p><h2 className="mt-1 text-2xl font-semibold tracking-tight">People and profile</h2></div>
+              <p className="text-xs text-slate-500">Manage your details and open a private chat.</p>
+            </div>
+            {socialLoading && <p className="bubble-panel mb-4 p-4 text-sm text-slate-400">Loading your profile and friends…</p>}
+            {socialError && <p role="alert" className="mb-4 rounded-2xl border border-rose-400/20 bg-rose-950/30 p-4 text-sm text-rose-200">{socialError}</p>}
+            <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr_1fr]">
+              <div className="bubble-panel p-5">
+                <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Your profile</h3><button onClick={saveProfile} disabled={!!busy} className="text-sm font-medium text-[#9de8df]">{busy === 'profile' ? 'Saving…' : 'Save'}</button></div>
+                <div className="mb-4 flex items-center gap-3"><div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border border-white/10 bg-[#273c50] text-lg font-semibold text-[#d7d9ff]">{avatarUrl ? <img src={avatarUrl} alt="Profile avatar" className="h-full w-full object-cover" /> : (displayName || username || 'B').slice(0, 1).toUpperCase()}</div><label className="bubble-secondary-button cursor-pointer"> <ImagePlus size={16} className="mr-2" /> Change photo<input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => uploadAvatar(e.target.files?.[0])} /></label></div>
+                <label className="bubble-label">Username<input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className="bubble-input mt-1" /></label>
+                <label className="bubble-label mt-3">Display name<input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" className="bubble-input mt-1" /></label>
+                <label className="bubble-label mt-3">About you<textarea maxLength={240} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A short bio" className="bubble-input mt-1 min-h-24 resize-y" /></label>
+              </div>
+
+              <div className="bubble-panel p-5">
+                <div className="mb-4 flex items-center gap-2"><UserPlus size={18} className="text-[#9de8df]" /><h3 className="font-semibold">Find people</h3></div>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or username" className="bubble-input mb-3" />
+                <div className="space-y-1">
+                  {results.map((p) => <div key={p.id} className="flex items-center justify-between gap-3 rounded-xl px-2 py-2.5 hover:bg-white/[0.04]"><div className="min-w-0"><p className="truncate text-sm font-medium">{p.display_name}</p><p className="truncate text-xs text-slate-500">@{p.username}</p></div><button disabled={!!busy} onClick={() => sendRequest(p)} aria-label={`Add ${p.display_name}`} className="bubble-icon-button"><UserPlus size={16} /></button></div>)}
+                  {search.trim() && results.length === 0 && <p className="py-3 text-sm text-slate-500">No matching people found.</p>}
+                </div>
+                <div className="mt-4 border-t border-white/10 pt-4"><h4 className="mb-2 text-xs font-semibold text-slate-400">Incoming requests</h4>
+                  {requests.filter((r) => r.receiver_id === user.id).map((r) => <div key={r.id} className="flex items-center justify-between gap-2 border-b border-white/[0.06] py-2 text-sm"><span className="min-w-0 truncate">{profiles.find((p) => p.id === r.sender_id)?.display_name || 'Friend request'}</span><span className="flex shrink-0 gap-3"><button onClick={() => requestAction('accept_friend_request', r.id)} className="text-[#9de8df]">Accept</button><button onClick={() => requestAction('reject_friend_request', r.id)} className="text-rose-300">Decline</button></span></div>)}
+                  {requests.filter((r) => r.receiver_id === user.id).length === 0 && <p className="text-xs text-slate-500">No pending requests.</p>}
+                  <h4 className="mb-2 mt-4 text-xs font-semibold text-slate-400">Sent requests</h4>
+                  {requests.filter((r) => r.sender_id === user.id).map((r) => <div key={r.id} className="flex items-center justify-between gap-2 border-b border-white/[0.06] py-2 text-sm"><span className="min-w-0 truncate">{profiles.find((p) => p.id === r.receiver_id)?.display_name || 'Pending request'}</span><button onClick={() => requestAction('cancel_friend_request', r.id)} className="shrink-0 text-xs text-rose-300">Cancel</button></div>)}
+                  {requests.filter((r) => r.sender_id === user.id).length === 0 && <p className="text-xs text-slate-500">No sent requests.</p>}
+                </div>
+              </div>
+
+              <div className="bubble-panel p-5">
+                <div className="mb-4 flex items-center gap-2"><Users size={18} className="text-[#b9b4ff]" /><h3 className="font-semibold">Your friends</h3></div>
+                {friends.length === 0 && <p className="text-sm leading-6 text-slate-500">Friends will appear here. Accept a request to start a private chat.</p>}
+                {friends.map((p) => <button key={p.id} onClick={() => openPrivate(p)} className="flex w-full items-center justify-between gap-3 border-b border-white/[0.07] py-3 text-left"><span className="min-w-0"><span className="block truncate text-sm font-medium">{p.display_name}</span><span className="block truncate text-xs text-slate-500">@{p.username}</span></span><Send size={16} className="shrink-0 text-[#9de8df]" /></button>)}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 py-5 text-xs text-slate-500"><span>Bubble Chat</span><span>Rooms and messages stay connected in real time.</span></footer>
+      </div>
+
+      {authReady && !user && supabase && (
+        <div className="fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-[#050c16]/90 p-4 backdrop-blur-md sm:p-6">
+          <form onSubmit={(e) => { e.preventDefault(); authenticate() }} className="bubble-auth-card my-auto grid w-full max-w-3xl overflow-hidden sm:grid-cols-[.85fr_1fr]">
+            <div className="bubble-auth-aside hidden flex-col justify-between p-7 sm:flex">
+              <span className="flex items-center gap-2 text-sm font-semibold"><span className="bubble-mark grid size-8 place-items-center rounded-xl text-sm text-[#07131f]">b.</span> Bubble Chat</span>
+              <div><p className="text-xs text-[#a9eee5]">YOUR CONVERSATIONS, IN ONE PLACE</p><h2 className="mt-3 text-3xl font-semibold leading-tight tracking-tight">Make room for a good chat.</h2><p className="mt-3 text-sm leading-6 text-slate-400">Sign in to find friends and continue private conversations.</p></div>
+              <span className="text-xs text-slate-500">Simple rooms. Real people.</span>
+            </div>
+            <div className="p-6 sm:p-8">
+              <div className="mb-6"><p className="text-xs text-[#9de8df]">{authMode === 'sign-up' ? 'CREATE AN ACCOUNT' : 'WELCOME BACK'}</p><h2 className="mt-2 text-2xl font-semibold">{authMode === 'sign-up' ? 'Join Bubble Chat' : 'Sign in'}</h2><p className="mt-1 text-sm text-slate-400">Use your email to continue.</p></div>
+              {authMode === 'sign-up' && <><label className="bubble-label">Display name<input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" className="bubble-input mt-1" /></label><label className="bubble-label mt-3">Username<input required value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username" className="bubble-input mt-1" /></label></>}
+              <label className="bubble-label mt-3">Email<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="bubble-input mt-1" /></label>
+              <label className="bubble-label mt-3">Password<input required minLength={8} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" className="bubble-input mt-1" /></label>
+              {authMode === 'sign-in' && <button type="button" disabled={!!busy} onClick={sendPasswordReset} className="mt-3 text-left text-xs text-[#b9baff] hover:text-white">{busy === 'reset' ? 'Sending reset link…' : 'Forgot password?'}</button>}
+              {authError && <p role="alert" className="mt-3 text-sm text-rose-300">{authError}</p>}
+              <label className="bubble-label mt-4">Guest display name<input required maxLength={24} value={guestName} onChange={(e) => setGuestName(e.target.value.slice(0, 24))} placeholder="Name shown in rooms" className="bubble-input mt-1" /></label>
+              <button type="button" disabled={busy === 'guest' || busy === 'auth'} onClick={async () => { const name = guestName.trim(); if (!name) { setAuthError('Choose a guest display name first.'); return } setBusy('guest'); localStorage.setItem('bubble_guest_display_name', name); const { data, error } = await supabase.auth.signInAnonymously(); if (error) setAuthError('Guest access is disabled in Supabase. Enable Authentication → Providers → Anonymous Sign-Ins, then retry.'); else { setUser(data.user); const requestedRoom = (new URLSearchParams(window.location.search).get('room') || '').toUpperCase(); if (requestedRoom) { const { error: joinError } = await supabase.rpc('join_chat_room', { p_room_id: requestedRoom, p_display_name: name }); if (joinError) setRoomError('Could not join this room. Check the code and try again.'); else { setRoom(requestedRoom); setRoomOpen(true) } } } setBusy('') }} className="bubble-secondary-button mt-5 w-full">{busy === 'guest' ? 'Connecting…' : 'Continue as guest'}</button>
+              <button disabled={busy === 'auth'} className="bubble-primary-button mt-3 w-full">{busy === 'auth' ? 'Please wait…' : authMode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
+              <button type="button" onClick={() => { setAuthError(''); setAuthMode(authMode === 'sign-up' ? 'sign-in' : 'sign-up') }} className="mt-5 w-full text-sm text-slate-400 hover:text-white">{authMode === 'sign-up' ? 'Already have an account? Sign in' : 'New to Bubble Chat? Create an account'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {roomOpen && room && (
+        <section aria-label={`Room ${room} chat`} className="bubble-chat-window fixed inset-x-3 bottom-3 z-30 mx-auto flex max-h-[calc(100dvh-1.5rem)] w-auto max-w-[460px] flex-col overflow-hidden sm:inset-x-auto sm:bottom-5 sm:right-5 sm:mx-0 sm:w-[min(460px,calc(100vw-2.5rem))]">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 sm:px-5"><div className="flex min-w-0 items-center gap-3"><span className="bubble-icon-chip"><MessageCircle size={17} /></span><div className="min-w-0"><p className="truncate text-sm font-semibold">Room {room}</p><p className="text-xs text-slate-500">Live room chat</p></div></div><div className="flex gap-1"><button aria-label="Copy room link" className="bubble-icon-button" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}?room=${room}`); setCopied(true); setTimeout(() => setCopied(false), 1200) }}>{copied ? <Check size={16} /> : <Copy size={16} />}</button><button aria-label="Close chat" className="bubble-icon-button" onClick={() => setRoomOpen(false)}><X size={16} /></button></div></div>
+          <div className="flex min-h-0 h-[min(55dvh,520px)] flex-col gap-2 overflow-y-auto p-4 sm:h-[min(58dvh,520px)]">{roomLoading && <p className="text-sm text-slate-500">Loading messages…</p>}{roomError && <p role="alert" className="text-sm text-rose-300">{roomError}</p>}{!roomLoading && !roomError && roomMessages.length === 0 && <p className="my-auto text-center text-sm text-slate-500">No messages yet. Start the conversation.</p>}{roomMessages.map((m) => <div key={m.id} className="max-w-[88%] self-start rounded-2xl rounded-bl-md bg-[#1b2c3c] px-3.5 py-2.5 text-sm leading-6"><p className="mb-1 text-[11px] font-medium text-[#9de8df]">{m.sender_name}</p>{m.body}</div>)}</div>
+          <form onSubmit={async (e) => { e.preventDefault(); const body = roomText.trim(); if (supabase && user && body) { setRoomText(''); const { error } = await supabase.from('chat_messages').insert({ room_id: room, body }); if (error) setAuthError('Could not send room message. Please retry.') } }} className="flex gap-2 border-t border-white/10 p-3"><input value={roomText} onChange={(e) => setRoomText(e.target.value)} placeholder="Write a message…" aria-label="Room message" className="bubble-input min-w-0 flex-1" /><button aria-label="Send room message" className="bubble-send-button"><Send size={17} /></button></form>
+        </section>
+      )}
+
+      {conversation && (
+        <section aria-label="Private conversation" className={`bubble-chat-window fixed inset-x-3 z-30 mx-auto flex max-h-[calc(100dvh-1.5rem)] w-auto max-w-[460px] flex-col overflow-hidden sm:inset-x-auto sm:bottom-5 sm:left-5 sm:mx-0 sm:w-[min(460px,calc(100vw-2.5rem))] ${roomOpen ? 'bottom-[calc(min(55dvh,520px)+5rem)] sm:bottom-5' : 'bottom-3 sm:bottom-5'}`}>
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 sm:px-5"><div className="flex min-w-0 items-center gap-3"><span className="bubble-icon-chip"><Users size={17} /></span><div className="min-w-0"><p className="truncate text-sm font-semibold">{other?.display_name || 'Private chat'}</p><p className="text-xs text-slate-500">Private conversation</p></div></div><button aria-label="Close private chat" className="bubble-icon-button" onClick={() => setConversation(null)}><X size={16} /></button></div>
+          <div className="flex min-h-0 h-[min(48dvh,440px)] flex-col gap-2 overflow-y-auto p-4">{privateMessages.length === 0 && <p className="my-auto text-center text-sm text-slate-500">Start a private conversation.</p>}{privateMessages.map((m) => <div key={m.id} className={`max-w-[86%] rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${m.sender_id === user?.id ? 'ml-auto rounded-br-md bg-[#a8eee3] text-[#0b1a25]' : 'rounded-bl-md bg-[#1b2c3c] text-slate-100'}`}>{m.body}</div>)}</div>
+          <form onSubmit={(e) => { e.preventDefault(); sendPrivate() }} className="flex gap-2 border-t border-white/10 p-3"><input value={privateText} onChange={(e) => setPrivateText(e.target.value)} placeholder="Write a private message…" aria-label="Private message" className="bubble-input min-w-0 flex-1" /><button aria-label="Send private message" className="bubble-send-button"><Send size={17} /></button></form>
+        </section>
+      )}
     </main>
   )
 }
