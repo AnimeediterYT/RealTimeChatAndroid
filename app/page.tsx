@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient, type RealtimeChannel, type User } from '@supabase/supabase-js'
-import { Bell, Check, ChevronDown, Compass, Copy, Hash, Home, ImagePlus, MessageCircle, Plus, Search, Send, Settings, ShieldCheck, Sparkles, UserPlus, Users } from 'lucide-react'
+import { Bell, Check, ChevronDown, ChevronRight, Compass, Copy, Crown, Hash, Home, ImagePlus, LayoutDashboard, MessageCircle, Palette, Plus, Search, Send, Server, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserPlus, Users } from 'lucide-react'
 
 type RoomMessage = { id: string; room_id: string; sender_name: string; body: string; reaction?: string | null; created_at: string }
 type Profile = { id: string; username: string; display_name: string; bio: string; avatar_url?: string | null }
@@ -28,8 +28,8 @@ export default function Page() {
   const [room, setRoom] = useState(''); const [roomInput, setRoomInput] = useState(''); const [roomOpen, setRoomOpen] = useState(false); const [roomText, setRoomText] = useState(''); const [roomMessages, setRoomMessages] = useState<RoomMessage[]>([]); const [roomLoading, setRoomLoading] = useState(false); const [roomError, setRoomError] = useState(''); const [copied, setCopied] = useState(false)
   const [profiles, setProfiles] = useState<Profile[]>([]); const [requests, setRequests] = useState<FriendRequest[]>([]); const [friendships, setFriendships] = useState<Friendship[]>([]); const [search, setSearch] = useState(''); const [socialLoading, setSocialLoading] = useState(false); const [socialError, setSocialError] = useState('')
   const [conversation, setConversation] = useState<PrivateConversation | null>(null); const [conversations, setConversations] = useState<PrivateConversation[]>([]); const [privateMessages, setPrivateMessages] = useState<PrivateMessage[]>([]); const [privateText, setPrivateText] = useState('')
-  const [activeView, setActiveView] = useState<'chat' | 'friends' | 'requests' | 'discover' | 'profile'>('chat'); const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]); const [testBot, setTestBot] = useState<Profile | null>(null); const [botLoading, setBotLoading] = useState(false)
-  const [roomReactions, setRoomReactions] = useState<MessageReaction[]>([]); const [privateReactions, setPrivateReactions] = useState<MessageReaction[]>([]); const [emojiPicker, setEmojiPicker] = useState<'room' | 'private' | null>(null); const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
+  const [activeView, setActiveView] = useState<'servers' | 'chat' | 'friends' | 'requests' | 'discover' | 'profile' | 'shop' | 'settings'>('servers'); const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]); const [testBot, setTestBot] = useState<Profile | null>(null); const [botLoading, setBotLoading] = useState(false)
+  const [decoration, setDecoration] = useState('none'); const [roomReactions, setRoomReactions] = useState<MessageReaction[]>([]); const [privateReactions, setPrivateReactions] = useState<MessageReaction[]>([]); const [emojiPicker, setEmojiPicker] = useState<'room' | 'private' | null>(null); const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
   const roomChannel = useRef<RealtimeChannel | null>(null); const privateChannel = useRef<RealtimeChannel | null>(null)
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export default function Page() {
     setDisplayName(me.data?.display_name || current.user_metadata?.display_name || '')
     setUsername(me.data?.username || current.user_metadata?.username || '')
     setBio(me.data?.bio || '')
-    setAvatarUrl(me.data?.avatar_url || '')
+    setAvatarUrl(me.data?.avatar_url || ''); setDecoration(String(current.user_metadata?.profile_decoration || localStorage.getItem('bubble_profile_decoration') || 'none'))
     if (me.error || req.error || friends.error || people.error || recentConversations.error) setSocialError('Could not load your social data. Please retry.')
     setConversations((recentConversations.data||[]) as PrivateConversation[])
     setProfiles((people.data || []) as Profile[]); setTestBot(((people.data || []) as Profile[]).find((p) => p.username === 'bubble_test_bot') || null); setRequests((req.data || []) as FriendRequest[]); setFriendships((friends.data || []) as Friendship[]); setSocialLoading(false)
@@ -81,7 +81,7 @@ export default function Page() {
         }
       }
     })
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); setAuthReady(true); if (session?.user && !session.user.is_anonymous) loadSocial(session.user) })
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); setAuthReady(true); if (session?.user) setDecoration(String(session.user.user_metadata?.profile_decoration || localStorage.getItem('bubble_profile_decoration') || 'none')); if (session?.user && !session.user.is_anonymous) loadSocial(session.user) })
     return () => data.subscription.unsubscribe()
   }, [loadSocial])
 
@@ -189,7 +189,17 @@ export default function Page() {
     else { if (data?.bot) setTestBot(data.bot as Profile); await loadSocial(user); setActiveView(data?.already_friends ? 'friends' : 'requests') }
     setBotLoading(false)
   }
-  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null); setConversations([]); setRoomOpen(false); setRoom(''); setRoomMessages([]); setPrivateMessages([]); setActiveView('chat') }
+  const selectDecoration = async (next: string) => {
+    setDecoration(next)
+    localStorage.setItem('bubble_profile_decoration', next)
+    if (!user || user.is_anonymous || !supabase) return
+    setBusy('decoration')
+    const { data, error } = await supabase.auth.updateUser({ data: { profile_decoration: next } })
+    if (error) setAuthError('Decoration was selected locally but could not be synced to your account.')
+    else if (data.user) setUser(data.user)
+    setBusy('')
+  }
+  const signOut = async () => { await supabase?.auth.signOut(); setUser(null); setConversation(null); setConversations([]); setRoomOpen(false); setRoom(''); setRoomMessages([]); setPrivateMessages([]); setActiveView('servers') }
   const ensureRoomSession = async () => {
     if (!supabase) return false
     const name = guestName.trim().slice(0, 24)
@@ -231,31 +241,32 @@ export default function Page() {
 
   return (
     <main className="discord-shell" data-device={deviceMode}>
-      <aside className="server-rail" aria-label="Workspace navigation">
-        <a href="/" className="rail-logo" aria-label="Bubble Chat">b.</a>
+      <aside className="server-rail" aria-label="Server navigation">
+        <button className={'rail-button rail-home '+(activeView==='servers'?'is-active':'')} title="Server home" onClick={() => setActiveView('servers')}><LayoutDashboard size={21}/></button>
         <span className="rail-separator" />
-        <button className="rail-button is-active" title="Messages" onClick={() => setActiveView('chat')}><Home size={21}/></button>
-        <button className="rail-button" title="Friends" onClick={() => setActiveView('friends')}><Users size={21}/></button>
-        <button className="rail-button" title="Discover" onClick={() => setActiveView('discover')}><Compass size={21}/></button>
+        {roomOpen&&room&&<button className={'rail-button server-rail-item '+(activeView==='chat'?'is-active':'')} title={'Server '+room} onClick={() => setActiveView('chat')}><span>{room.slice(0,2)}</span></button>}
+        <button className="rail-button rail-add" title="Create a server" onClick={createRoom}><Plus size={23}/></button>
         <span className="rail-separator" />
-        <button className="rail-button rail-add" title="Create room" onClick={createRoom}><Plus size={23}/></button>
+        <button className={'rail-button '+(activeView==='friends'?'is-active':'')} title="Friends" onClick={() => setActiveView('friends')}><Users size={21}/></button>
+        <button className={'rail-button '+(activeView==='shop'?'is-active':'')} title="Shop" onClick={() => setActiveView('shop')}><Store size={20}/></button>
         <div className="rail-spacer"/>
-        <button className="rail-button" title="Settings" onClick={() => setActiveView('profile')}><Settings size={20}/></button>
+        <button className={'rail-button '+(activeView==='settings'?'is-active':'')} title="Settings" onClick={() => setActiveView('settings')}><Settings size={20}/></button>
       </aside>
 
       <aside className="workspace-sidebar">
-        <button className="workspace-switcher" onClick={() => setActiveView('chat')}><span className="workspace-glyph">b.</span><span><strong>Bubble Hub</strong><small>Your conversations</small></span><ChevronDown size={16}/></button>
+        <button className="workspace-switcher" onClick={() => setActiveView('servers')}><span className="workspace-glyph"><Server size={20}/></span><span><strong>Servers</strong><small>Your communities</small></span><ChevronDown size={16}/></button>
         <div className="sidebar-search"><Search size={15}/><input aria-label="Search people" placeholder="Search people" value={search} onChange={(e) => {setSearch(e.target.value);setActiveView('discover')}}/></div>
         <div className="sidebar-section">
-          <p className="sidebar-heading">Your space</p>
+          <p className="sidebar-heading">Explore</p>
+          <button className={'sidebar-link '+(activeView==='servers'?'selected':'')} onClick={() => setActiveView('servers')}><Server size={18}/> Server home</button>
           <button className={'sidebar-link '+(activeView==='chat'?'selected':'')} onClick={() => setActiveView('chat')}><MessageCircle size={18}/> Messages</button>
           <button className={'sidebar-link '+(activeView==='friends'?'selected':'')} onClick={() => setActiveView('friends')}><Users size={18}/> Friends <span className="sidebar-count">{friends.length}</span></button>
           <button className={'sidebar-link '+(activeView==='requests'?'selected':'')} onClick={() => setActiveView('requests')}><Bell size={18}/> Requests {requests.some((r)=>r.receiver_id===user?.id)&&<span className="request-dot"/>}</button>
           <button className={'sidebar-link '+(activeView==='discover'?'selected':'')} onClick={() => setActiveView('discover')}><Compass size={18}/> Discover</button>
         </div>
         <div className="sidebar-section room-section">
-          <div className="sidebar-heading-row"><p className="sidebar-heading">Rooms</p><button aria-label="Create room" onClick={createRoom}><Plus size={16}/></button></div>
-          {roomOpen&&room?<button className="sidebar-link selected" onClick={()=>{setConversation(null);setActiveView('chat')}}><Hash size={17}/> Room {room}</button>:<p className="sidebar-empty">No room open</p>}
+          <div className="sidebar-heading-row"><p className="sidebar-heading">Server channels</p><button aria-label="Create a server" onClick={createRoom}><Plus size={16}/></button></div>
+          {roomOpen&&room?<><button className={'sidebar-link '+(activeView==='servers'?'selected':'')} onClick={()=>setActiveView('servers')}><Server size={17}/> {room}</button><p className="sidebar-subheading">TEXT CHANNELS</p><button className={'sidebar-link '+(activeView==='chat'?'selected':'')} onClick={()=>{setConversation(null);setActiveView('chat')}}><Hash size={17}/> general</button></>:<p className="sidebar-empty">Create or join a server to see its channels.</p>}
           <button className="sidebar-create" onClick={createRoom}><Plus size={16}/> Create a room</button>
           <div className="sidebar-join"><input value={roomInput} onChange={(e)=>setRoomInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6))} maxLength={6} placeholder="Room code" aria-label="Room code"/><button onClick={joinRoom}>Join</button></div>
           {user?.is_anonymous&&<label className="guest-name-label">Guest name<input value={guestName} maxLength={24} onChange={(e)=>{setGuestName(e.target.value.slice(0,24));localStorage.setItem('bubble_guest_display_name',e.target.value.slice(0,24))}} placeholder="Your chat name"/></label>}
@@ -276,16 +287,29 @@ export default function Page() {
       <section className="workspace-main">
         <header className="workspace-header">
           <div className="header-title">
-            {activeView==='chat'&&<><Hash size={20}/><strong>{roomOpen&&room?'Room '+room:other?.display_name||'Messages'}</strong></>}
-            {activeView==='friends'&&<><Users size={20}/><strong>Friends</strong></>}
+            {activeView==='servers'&&<><Server size={20}/><strong>Servers</strong></>}
+            {activeView==='chat'&&<><Hash size={20}/><strong>{roomOpen&&room?'# general':other?.display_name||'Messages'}</strong></>}
+            {activeView==='shop'&&<div className="page-stage shop-stage"><div className="page-intro"><div><p className="eyebrow">PROFILE CUSTOMISATION</p><h1>Make your profile yours.</h1><p>Choose a decoration to personalise your Bubble Chat profile. These preview items are free in this preview build.</p></div></div><div className="shop-feature-banner"><div><span className="eyebrow">THE BUBBLE SHOP</span><h2>Small details. Your style.</h2><p>Try a frame, glow or banner accent. Your selected decoration stays on your account.</p></div><span className="shop-banner-mark"><Sparkles size={38}/></span></div><div className="shop-section-heading"><div><h2>Profile decorations</h2><p>Choose one to apply it to your profile.</p></div><span className="shop-free-tag">PREVIEW CATALOG</span></div><div className="decoration-grid">{[{id:'none',name:'Classic',description:'The clean original look',symbol:'○'},{id:'halo',name:'Soft Halo',description:'A subtle violet glow',symbol:'✧'},{id:'orbit',name:'Orbit',description:'A layered profile ring',symbol:'◉'},{id:'spark',name:'Starlight',description:'A little sparkle around you',symbol:'✦'},{id:'wave',name:'Wave Frame',description:'A flowing double border',symbol:'◎'},{id:'crown',name:'Crown',description:'A bright profile accent',symbol:'♛'}].map((item)=><article className={'decoration-card '+(decoration===item.id?'is-selected':'')} key={item.id}><div className={'decoration-preview decoration-'+item.id}><span>{item.symbol}</span><small>{displayName||guestName||'Your profile'}</small></div><div className="decoration-card-copy"><strong>{item.name}</strong><p>{item.description}</p><button className={decoration===item.id?'discord-secondary':'discord-primary'} onClick={()=>selectDecoration(item.id)} disabled={busy==='decoration'}>{decoration===item.id?'Equipped':'Equip'}</button></div></article>)}</div></div>}
+          {activeView==='friends'&&<><Users size={20}/><strong>Friends</strong></>}
             {activeView==='requests'&&<><Bell size={20}/><strong>Friend requests</strong></>}
             {activeView==='discover'&&<><Compass size={20}/><strong>Discover people</strong></>}
-            {activeView==='profile'&&<><Settings size={20}/><strong>Profile and settings</strong></>}
+            {activeView==='profile'&&<><CircleUserRound size={20}/><strong>Profile</strong></>}
+            {activeView==='shop'&&<><Store size={20}/><strong>Shop</strong></>}
+            {activeView==='settings'&&<><Settings size={20}/><strong>Settings</strong></>}
           </div>
-          <div className="header-actions"><span className="header-hint">Bubble Chat</span><button className="header-icon" title="Friends" onClick={()=>setActiveView('friends')}><Users size={18}/></button><button className="header-icon" title="Settings" onClick={()=>setActiveView('profile')}><Settings size={18}/></button></div>
+          <div className="header-actions"><span className="header-hint">Bubble Chat</span><button className="header-icon" title="Friends" onClick={()=>setActiveView('friends')}><Users size={18}/></button><button className="header-icon" title="Shop" onClick={()=>setActiveView('shop')}><Store size={18}/></button><button className="header-icon" title="Settings" onClick={()=>setActiveView('settings')}><Settings size={18}/></button></div>
         </header>
 
         <div className="workspace-content">
+          {activeView==='servers'&&<div className="page-stage server-home-stage">
+            <div className="server-home-hero"><div className="server-home-icon"><Server size={30}/></div><p className="eyebrow">YOUR COMMUNITIES</p><h1>{roomOpen&&room?'Welcome to your server':'Make a place to belong.'}</h1><p>{roomOpen&&room?'Your server is ready. Open the general channel to start talking, or invite people with your six-character code.':'Create a server for your friends or join one with an invite code. Your servers are the centre of Bubble Chat.'}</p>
+              {roomOpen&&room&&<div className="server-code-pill"><span>SERVER INVITE CODE</span><strong>{room}</strong><button className="discord-secondary" onClick={()=>{navigator.clipboard.writeText(window.location.origin+'?room='+room);setCopied(true);window.setTimeout(()=>setCopied(false),1200)}}><Copy size={15}/>{copied?'Copied':'Copy invite'}</button></div>}
+              <div className="server-home-actions"><button className="discord-primary" onClick={()=>roomOpen&&room?setActiveView('chat'):createRoom()} disabled={roomLoading}><Plus size={17}/>{roomOpen&&room?'Open # general':roomLoading?'Creating…':'Create a server'}</button><button className="discord-secondary" onClick={()=>{document.getElementById('server-join-code')?.focus()}}><Users size={17}/> Join a server</button></div>
+            </div>
+            <div className="server-feature-grid"><button className="server-feature-card" onClick={()=>roomOpen&&room?setActiveView('chat'):createRoom()}><span className="server-feature-icon"><Hash size={20}/></span><strong>{roomOpen&&room?'# general':'Text channels'}</strong><p>{roomOpen&&room?'Open your server’s general conversation.':'A shared place for messages, ideas and updates.'}</p><ChevronRight size={18}/></button><button className="server-feature-card" onClick={()=>setActiveView('friends')}><span className="server-feature-icon"><Users size={20}/></span><strong>Invite your people</strong><p>Find friends, send requests and start private conversations.</p><ChevronRight size={18}/></button><button className="server-feature-card" onClick={()=>setActiveView('shop')}><span className="server-feature-icon"><Palette size={20}/></span><strong>Make it yours</strong><p>Browse profile frames and decorations in the Shop.</p><ChevronRight size={18}/></button></div>
+            {!roomOpen&&<div className="server-join-panel"><div><strong>Already have a server code?</strong><p>Enter the six-character invite code to join.</p></div><div className="server-join-controls"><input id="server-join-code" value={roomInput} onChange={(e)=>setRoomInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6))} maxLength={6} placeholder="ABC123" aria-label="Server invite code"/><button className="discord-primary" onClick={joinRoom} disabled={roomLoading}>Join server</button></div></div>}
+            {roomError&&<p className="inline-error" role="alert">{roomError}</p>}
+          </div>}
           {activeView==='chat'&&(
             <div className="chat-stage">
               {roomOpen&&room?<>
@@ -317,7 +341,8 @@ export default function Page() {
 
           {activeView==='discover'&&<div className="page-stage"><div className="page-intro"><div><p className="eyebrow">FIND YOUR PEOPLE</p><h1>Discover</h1><p>Search public profiles by username or display name.</p></div></div>{user?.is_anonymous?<div className="notice-panel">Sign in with a registered account to send friend requests.</div>:<><div className="discover-search"><Search size={18}/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search usernames or display names"/></div>{results.length===0?<div className="empty-panel"><Compass size={30}/><h2>Search for someone</h2><p>Type a name or username to find people. You can also add the test bot.</p><button className="discord-secondary" onClick={inviteTestBot} disabled={botLoading}><ShieldCheck size={16}/>{botLoading?'Connecting…':'Add test bot'}</button></div>:<div className="people-list">{results.map((p)=><div className="person-row" key={p.id}><span className="avatar-large">{p.avatar_url?<img src={p.avatar_url} alt=""/>:p.display_name.slice(0,1).toUpperCase()}</span><div className="person-copy"><strong>{p.display_name}{p.username==='bubble_test_bot'&&<span className="bot-tag">TEST BOT</span>}</strong><small>@{p.username}</small></div><button className="discord-secondary" onClick={()=>sendRequest(p)} disabled={!!busy||friendships.some((f)=>(f.user_a===user?.id&&f.user_b===p.id)||(f.user_b===user?.id&&f.user_a===p.id))||requests.some((r)=>(r.sender_id===user?.id&&r.receiver_id===p.id)||(r.receiver_id===user?.id&&r.sender_id===p.id))}><UserPlus size={16}/>{friends.some((friend)=>friend.id===p.id)?'Friends':requests.some((r)=>(r.sender_id===user?.id&&r.receiver_id===p.id)||(r.receiver_id===user?.id&&r.sender_id===p.id))?'Request pending':'Add friend'}</button></div>)}</div>}</>}</div>}
 
-          {activeView==='profile'&&<div className="page-stage"><div className="page-intro"><div><p className="eyebrow">ACCOUNT</p><h1>Profile and settings</h1><p>Update how people see you across Bubble Chat.</p></div></div>{user?.is_anonymous?<div className="notice-panel">Guest profiles are temporary. Create an account to save a profile photo, username and bio.</div>:<div className="profile-editor"><div className="profile-cover"><Sparkles size={22}/><span>YOUR BUBBLE PROFILE</span></div><div className="profile-edit-body"><div className="profile-edit-avatar">{avatarUrl?<img src={avatarUrl} alt="Profile avatar"/>:(displayName||username||'B').slice(0,1).toUpperCase()}</div><label className="discord-secondary upload-control"><ImagePlus size={16}/> Change avatar<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e)=>uploadAvatar(e.target.files?.[0])}/></label><div className="profile-fields"><label>Display name<input value={displayName} onChange={(e)=>setDisplayName(e.target.value)} maxLength={80}/></label><label>Username<input value={username} onChange={(e)=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,32))} maxLength={32}/></label><label>About me<textarea value={bio} onChange={(e)=>setBio(e.target.value)} maxLength={240} rows={4}/></label></div><div className="profile-actions"><button className="discord-danger" onClick={signOut}>Sign out</button><button className="discord-primary" onClick={saveProfile} disabled={!!busy}>{busy==='profile'?'Saving…':'Save changes'}</button></div></div></div>}</div>}
+          {activeView==='profile'&&<div className="page-stage"><div className="page-intro"><div><p className="eyebrow">ACCOUNT</p><h1>Profile and settings</h1><p>Update how people see you across Bubble Chat.</p></div></div>{user?.is_anonymous?<div className="notice-panel">Guest profiles are temporary. Create an account to save a profile photo, username and bio.</div>:<div className="profile-editor"><div className="profile-cover"><Sparkles size={22}/><span>YOUR BUBBLE PROFILE</span></div><div className="profile-edit-body"><div className={'profile-edit-avatar decoration-'+decoration}>{avatarUrl?<img src={avatarUrl} alt="Profile avatar"/>:(displayName||username||'B').slice(0,1).toUpperCase()}</div><label className="discord-secondary upload-control"><ImagePlus size={16}/> Change avatar<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e)=>uploadAvatar(e.target.files?.[0])}/></label><div className="profile-fields"><label>Display name<input value={displayName} onChange={(e)=>setDisplayName(e.target.value)} maxLength={80}/></label><label>Username<input value={username} onChange={(e)=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'').slice(0,32))} maxLength={32}/></label><label>About me<textarea value={bio} onChange={(e)=>setBio(e.target.value)} maxLength={240} rows={4}/></label></div><div className="profile-actions"><button className="discord-danger" onClick={signOut}>Sign out</button><button className="discord-primary" onClick={saveProfile} disabled={!!busy}>{busy==='profile'?'Saving…':'Save changes'}</button></div></div></div>}</div>}
+          {activeView==='settings'&&<div className="page-stage settings-stage"><div className="page-intro"><div><p className="eyebrow">PREFERENCES</p><h1>Settings</h1><p>Manage your account and Bubble Chat workspace.</p></div></div><div className="settings-group"><p className="settings-group-label">ACCOUNT</p><button className="settings-row" onClick={()=>setActiveView('profile')}><span className="settings-row-icon"><CircleUserRound size={19}/></span><span><strong>Profile customisation</strong><small>Avatar, display name, bio and decoration</small></span><ChevronRight size={18}/></button><button className="settings-row" onClick={()=>setActiveView('friends')}><span className="settings-row-icon"><Users size={19}/></span><span><strong>Friends and requests</strong><small>Manage your connections</small></span><ChevronRight size={18}/></button></div><div className="settings-group"><p className="settings-group-label">PERSONALISATION</p><button className="settings-row" onClick={()=>setActiveView('shop')}><span className="settings-row-icon"><Store size={19}/></span><span><strong>Shop and decorations</strong><small>Browse profile cosmetics</small></span><ChevronRight size={18}/></button><div className="settings-row settings-static"><span className="settings-row-icon"><Palette size={19}/></span><span><strong>Theme</strong><small>Discord-inspired dark palette</small></span><span className="settings-value">Current</span></div></div><div className="settings-group"><p className="settings-group-label">SESSION</p><div className="settings-row settings-static"><span className="settings-row-icon"><ShieldCheck size={19}/></span><span><strong>{user?.is_anonymous?'Guest session':'Signed-in session'}</strong><small>{user?.email||'Your session is stored by Supabase Auth'}</small></span></div><button className="settings-row settings-logout" onClick={signOut}><span className="settings-row-icon"><Settings size={19}/></span><span><strong>Log out</strong><small>Sign out of this device</small></span><ChevronRight size={18}/></button></div></div>}
           {authError&&user&&<p className="inline-error" role="alert">{authError}</p>}
           {socialError&&<p className="inline-error" role="alert">{socialError}</p>}
         </div>
@@ -330,11 +355,11 @@ export default function Page() {
       </aside>
 
       <nav className="mobile-nav" aria-label="Main navigation">
-        <button className={activeView==='chat'?'active':''} onClick={()=>setActiveView('chat')}><MessageCircle size={20}/><span>Chat</span></button>
-        <button className={activeView==='friends'?'active':''} onClick={()=>setActiveView('friends')}><Users size={20}/><span>Friends</span></button>
-        <button className={activeView==='requests'?'active':''} onClick={()=>setActiveView('requests')}><Bell size={20}/><span>Requests</span></button>
-        <button className={activeView==='discover'?'active':''} onClick={()=>setActiveView('discover')}><Compass size={20}/><span>Discover</span></button>
-        <button className={activeView==='profile'?'active':''} onClick={()=>setActiveView('profile')}><Settings size={20}/><span>Profile</span></button>
+        <button className={activeView==='servers'?'active':''} onClick={()=>setActiveView('servers')}><Server size={20}/><span>Servers</span></button>
+        <button className={activeView==='chat'?'active':''} onClick={()=>setActiveView('chat')}><MessageCircle size={20}/><span>Messages</span></button>
+        <button className={activeView==='friends'||activeView==='requests'?'active':''} onClick={()=>setActiveView('friends')}><Users size={20}/><span>Friends</span></button>
+        <button className={activeView==='shop'?'active':''} onClick={()=>setActiveView('shop')}><Store size={20}/><span>Shop</span></button>
+        <button className={activeView==='settings'||activeView==='profile'?'active':''} onClick={()=>setActiveView('settings')}><Settings size={20}/><span>Settings</span></button>
       </nav>
 
       {authReady&&!user&&supabase&&<div className="auth-overlay"><form onSubmit={(e)=>{e.preventDefault();authenticate()}} className="auth-card">
