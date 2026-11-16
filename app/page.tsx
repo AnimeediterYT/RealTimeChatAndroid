@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient, type RealtimeChannel, type User } from '@supabase/supabase-js'
-import { Bell, Check, ChevronDown, ChevronRight, Compass, Copy, Crown, Hash, Home, ImagePlus, LayoutDashboard, MessageCircle, Palette, Plus, Search, Send, Server, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserPlus, Users } from 'lucide-react'
+import { Bell, Check, CircleUserRound, ChevronDown, ChevronRight, Compass, Copy, Crown, Hash, Home, ImagePlus, LayoutDashboard, MessageCircle, Palette, Plus, Search, Send, Server, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserPlus, Users } from 'lucide-react'
 
 type RoomMessage = { id: string; room_id: string; sender_name: string; body: string; reaction?: string | null; created_at: string }
 type Profile = { id: string; username: string; display_name: string; bio: string; avatar_url?: string | null }
