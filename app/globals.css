@@ -136,12 +136,8 @@ img{display:block;max-width:100%}
 .person-row:hover{background:#2e3035}
 .avatar-large{width:39px;height:39px;font-size:15px}
 .person-copy{display:grid;min-width:0;flex:1;gap:3px}.person-copy strong{display:flex;align-items:center;gap:7px;color:#f2f3f5;font-size:13px}.person-copy small{color:#949ba4;font-size:11px}
-.bot-tag{display:inline-flex;align-items:center;padding:2px 5px;border-radius:3px;background:#5865f2;color:#fff;font-size:8px;font-weight:800;letter-spacing:.06em}
 .empty-panel{display:flex;flex-direction:column;align-items:center;padding:55px 18px;text-align:center;color:#949ba4}
 .empty-panel h2{margin:14px 0 4px;color:#f2f3f5;font-size:17px}.empty-panel p{max-width:380px;margin:4px 0 15px;font-size:12px;line-height:1.6}
-.test-bot-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:25px;padding:16px;border:1px solid #424653;border-radius:8px;background:#2b2d31}
-.test-bot-panel>div{display:flex;align-items:center;gap:11px}.test-bot-panel strong{color:#f2f3f5;font-size:12px}.test-bot-panel p{margin:4px 0 0;color:#949ba4;font-size:11px;line-height:1.5}
-.bot-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:#5865f2;color:#fff}
 .outgoing-heading{margin-top:30px}
 .discover-search{display:flex;align-items:center;gap:10px;margin-bottom:17px;padding:10px 12px;border:1px solid #404249;border-radius:6px;background:#232428;color:#949ba4}
 .discover-search input{padding:0;border:0;background:transparent;outline:0}
@@ -178,7 +174,6 @@ img{display:block;max-width:100%}
 .full-width{width:100%}.text-button,.auth-switch{border:0;background:transparent;color:#a5a6f6;text-align:left;font-size:11px}.auth-switch{text-align:center;color:#b5bac1}.auth-error{margin:0;color:#f38b8d;font-size:11px}
 .mobile-nav{display:none}
 @media(max-width:1120px){.discord-shell{grid-template-columns:68px 215px minmax(0,1fr)}.details-sidebar{display:none}}
-@media(max-width:700px){.discord-shell{height:100dvh;min-height:480px;grid-template-columns:58px minmax(0,1fr)}.server-rail{padding-top:9px}.rail-logo,.rail-button{width:40px;height:40px}.rail-logo{font-size:19px}.rail-button.is-active:before{left:-9px}.workspace-sidebar{display:none}.workspace-header{height:55px;padding:0 12px}.header-hint{display:none}.conversation-banner{align-items:flex-start;flex-direction:column;padding:17px}.conversation-banner h1{font-size:20px}.message-feed{padding:12px}.message-composer{margin:0 10px 12px}.welcome-stage{padding:26px 18px 80px}.page-stage{padding:24px 14px 88px}.page-intro{align-items:flex-start;flex-direction:column}.page-intro h1{font-size:26px}.person-row{gap:8px}.person-row .discord-primary,.person-row .discord-secondary,.person-row .discord-danger{padding:0 8px;font-size:10px}.test-bot-panel{align-items:flex-start;flex-direction:column}.profile-edit-body{padding:16px}.profile-edit-avatar{width:70px;height:70px;margin-top:-50px}.upload-control{top:14px;right:14px}.mobile-nav{position:fixed;z-index:20;right:0;bottom:0;left:58px;display:flex;justify-content:space-around;padding:7px 3px calc(7px + env(safe-area-inset-bottom));border-top:1px solid #1e1f22;background:#232428}.mobile-nav button{display:grid;justify-items:center;gap:3px;min-width:0;padding:4px 7px;border:0;border-radius:5px;background:transparent;color:#949ba4;font-size:9px}.mobile-nav button.active{color:#fff;background:#404249}.auth-card{padding:22px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
 
 /* Friendly interaction details. Palette remains the existing Discord-inspired set. */
