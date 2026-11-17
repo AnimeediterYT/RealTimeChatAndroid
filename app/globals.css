@@ -400,3 +400,62 @@ button.settings-row:hover{background:#34363d}
 @media(max-width:900px){.shop-toolbar{grid-template-columns:1fr}.shop-search{max-width:none}.shop-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.shop-toolbar{gap:12px}.shop-category-tabs{margin-right:-4px}.shop-category-tabs button{padding:9px 11px}.shop-catalog-grid{grid-template-columns:minmax(0,1fr)}.shop-item-card{display:grid;grid-template-columns:minmax(112px,38%) minmax(0,1fr)}.shop-item-card .decoration-preview{min-height:155px}.shop-item-card .decoration-card-copy{display:flex;flex-direction:column;justify-content:center;padding:12px}.shop-item-card .decoration-card-copy p{min-height:0;margin:5px 0 8px}.shop-item-meta{margin-top:auto}.shop-item-card .decoration-card-copy button{margin-top:2px}}
 @media(prefers-reduced-motion:reduce){.shop-item-card .decoration-preview>span{transition:none}.shop-item-card:hover .decoration-preview>span{transform:none}}
+
+
+/* Bubble Chat identity layer — reference-led layout, original midnight/violet palette */
+:root{
+  --background:#0d1020;--foreground:#e8eaf4;--card:#151a2d;--card-foreground:#e8eaf4;
+  --popover:#11162a;--popover-foreground:#f4f5fb;--primary:#8b7cf6;--primary-foreground:#fff;
+  --secondary:#202741;--secondary-foreground:#e3e6f5;--muted:#1b2238;--muted-foreground:#9aa6c1;
+  --accent:#272d49;--accent-foreground:#f4f5fb;--destructive:#e06b82;--border:#29314d;
+  --input:#12182b;--ring:#a99cff;--radius:.85rem;
+}
+html,body{background:#0d1020;color:#e8eaf4}
+.discord-shell{background:#0d1020}
+.server-rail{background:#090d1b;border-right:1px solid #202944}
+.rail-logo,.workspace-glyph{background:#7869e8;box-shadow:0 0 0 4px #7869e820}
+.rail-button{background:#171d31;color:#aab4ce}
+.rail-button:hover,.rail-button.is-active{background:#6558ce;color:#fff}
+.rail-button.is-active:before{background:#b8adff}
+.rail-add{color:#76cbbf;background:#171d31}
+.workspace-sidebar{background:#11172a;border-right-color:#242d49}
+.workspace-switcher{background:#11172a;border-bottom-color:#242d49;color:#f0f1fa}
+.workspace-switcher small,.sidebar-heading,.sidebar-count{color:#8e9bb8}
+.sidebar-search,.sidebar-join input,.guest-name-label input{background:#0c1223;border-color:#293553;color:#e8eaf4}
+.sidebar-link{color:#aeb8d1}
+.sidebar-link:hover,.sidebar-link.selected{background:#252b48;color:#fff}
+.sidebar-create{color:#aeb8d1}
+.sidebar-join button,.discord-primary{background:#7668df;color:#fff}
+.sidebar-join button:hover,.discord-primary:hover{background:#887af0}
+.account-strip{background:#0c1223;border-top:1px solid #222b46}
+.avatar-small,.avatar-large,.avatar-profile,.message-avatar,.profile-edit-avatar{background:#6f62d5}
+.account-copy strong{color:#edf0fb}.account-copy small{color:#8794b1}
+.workspace-main{background:#0d1324}
+.workspace-header{background:#10172a;border-bottom-color:#242d49;box-shadow:none}
+.header-title{color:#aab5d0}.header-title strong{color:#f0f1fa}
+.header-icon,.account-settings{color:#aab5d0}
+.header-icon:hover,.account-settings:hover{background:#252c49;color:#fff}
+.details-sidebar{background:#11172a;border-left:1px solid #242d49}
+.discord-secondary{background:#202943;border-color:#303c60;color:#dce2f5}
+.discord-secondary:hover{background:#2a3556}
+.discord-danger{background:#472536;color:#ffdce4}
+.page-intro h1,.server-home-hero h1,.auth-heading h2{color:#f2f3fb}
+.eyebrow{color:#a99cff}
+.empty-panel,.notice-panel,.room-detail-card,.profile-mini,.settings-group,.profile-editor{background:#151c31;border-color:#2a3555}
+.person-row,.settings-row,.member-row{border-color:#293451}
+.sidebar-subheading,.details-heading,.list-heading{color:#9eabc7}
+.message-feed{background:#0d1324}
+.message-row:hover{background:#151d32}
+.message-composer{background:#111a2d;border-color:#303b5d}
+.message-composer input{color:#f0f2fb}
+.message-composer button[type="submit"],.message-composer>button:last-of-type{background:#7668df}
+.auth-overlay{background:#080c19e8;backdrop-filter:blur(8px)}
+.auth-card{background:#141b30;border-color:#2d3859;box-shadow:0 28px 90px #030611a8}
+.form-input{background:#0d1428;border-color:#34405f;color:#f0f2fb}
+.shop-feature-banner{background:#151c31;border-color:#38365f}
+.shop-banner-mark{background:#7668df20;color:#b6aaff}
+.decoration-card{background:#151c31;border-color:#2c3654}
+.decoration-preview{background:linear-gradient(145deg,#11182b,#1b2340);color:#f0efff}
+.decoration-preview>span{border-color:#8b7cf6;background:#7668df1a;box-shadow:0 0 22px #7668df3b}
+.decoration-card.is-selected{border-color:#9a8cff;box-shadow:0 0 0 1px #9a8cff45}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
