@@ -363,7 +363,7 @@ export default function Page() {
                   <small>{item.name}</small></div>
                 </button>
                 <div className="decoration-card-copy"><div className="shop-item-title"><strong>{item.name}</strong>{equipped&&<span className="shop-equipped-tag">Equipped</span>}{owned&&!equipped&&<span className="shop-owned-tag">Owned</span>}</div><p>{item.description}</p>
-                  {item.category==='bundles'&&<div className="shop-bundle-includes">Includes 4 matching cosmetics{bundleOwned?' · all collected':''}</div>}
+                  {item.category==='bundles'&&<div className="shop-bundle-includes">Includes 4 matching cosmetics{item.bundleItems.every((id)=>ownedCosmeticIds.includes(id))?' · all collected':''}</div>}
                   {decoration===item.id&&<div className="shop-preview-note">Preview selected · {item.category.replace(/-/g,' ')}</div>}
                   {!user||user.is_anonymous?<div className="shop-auth-note">Sign in with a registered account to collect and equip cosmetics.</div>:item.category==='bundles'?<button className={owned?'discord-secondary':'discord-primary'} disabled={!!busy||owned} onClick={()=>collectCosmetic(item)}>{busy==='collect-'+item.id?'Adding…':owned?'In collection':'Collect bundle'}</button>:owned?<div className="shop-item-actions">{equipped?<button className="discord-secondary" disabled={!!busy} onClick={()=>unequipCosmetic(item.category)}>Unequip</button>:<button className="discord-primary" disabled={!!busy} onClick={()=>equipCosmetic(item)}>{busy==='equip-'+item.id?'Equipping…':'Equip'}</button>}</div>:<button className="discord-primary" disabled={!!busy} onClick={()=>collectCosmetic(item)}>{busy==='collect-'+item.id?'Adding…':'Add to collection'}</button>}
                 </div>
