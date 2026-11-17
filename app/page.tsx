@@ -78,6 +78,8 @@ export default function Page() {
           const { error } = await supabase.rpc('join_chat_room', { p_room_id: requestedRoom, p_display_name: currentUser.is_anonymous ? savedGuestName.trim() : null })
           if (error) setRoomError('Could not join this room. Check the code and try again.')
           else { setRoom(requestedRoom); setRoomOpen(true) }
+        }
+      }
     })
     const { data } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); setAuthReady(true); if (session?.user) setDecoration(String(session.user.user_metadata?.profile_decoration || localStorage.getItem('bubble_profile_decoration') || 'none')); if (session?.user && !session.user.is_anonymous) loadSocial(session.user) })
     return () => data.subscription.unsubscribe()
