@@ -459,3 +459,48 @@ html,body{background:#0d1020;color:#e8eaf4}
 .decoration-preview>span{border-color:#8b7cf6;background:#7668df1a;box-shadow:0 0 22px #7668df3b}
 .decoration-card.is-selected{border-color:#9a8cff;box-shadow:0 0 0 1px #9a8cff45}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* Discord-inspired cosmetic presentation and collection states */
+.shop-account-strip{display:flex;align-items:center;gap:9px;margin:16px 0;padding:12px 14px;border:1px solid #303a59;border-radius:12px;background:#121a2e}
+.shop-account-strip>div{display:flex;flex:1;flex-direction:column;gap:3px}
+.shop-account-strip>div strong{font-size:14px;color:#eeeaff}
+.shop-account-strip>div span{font-size:11px;color:#9da9c4}
+.shop-account-strip button{white-space:nowrap}
+.shop-preview-button{display:block;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:inherit;cursor:pointer}
+.shop-cosmetic-art{display:grid;place-items:center;width:100%;min-height:112px;position:relative;overflow:hidden}
+.shop-avatar-glyph{display:grid;place-items:center;width:78px;height:78px;border:3px solid #b8a8ff;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff8,transparent 35%),linear-gradient(140deg,#4b3c9a,#1e2449);font-size:37px;color:#fff;box-shadow:0 0 0 6px #a08aff2b,0 0 28px #9e8bff9c}
+.shop-effect-orb{display:grid;place-items:center;width:90px;height:90px;border:1px solid #8de4f2;border-radius:50%;background:radial-gradient(circle,#91edff8c 0,#7a70ec55 38%,transparent 70%);font-size:34px;color:#e4ffff;text-shadow:0 0 18px #9ff7ff;box-shadow:0 0 25px #78e2f399,inset 0 0 24px #7a70ec77;animation:bubble-effect-pulse 3s ease-in-out infinite}
+.shop-frame-art{display:grid;place-items:center;width:88px;height:98px;border:4px double #b9a5ff;border-radius:18px;background:linear-gradient(145deg,#b9a5ff38,#131a31);box-shadow:0 0 0 5px #a58bff22,0 0 24px #9d89ff5c}
+.shop-frame-art span{display:grid;place-items:center;width:56px;height:56px;border:1px solid #e1d9ff;border-radius:50%;background:#1c2440;color:#fff;font-size:27px}
+.shop-nameplate-art{padding:13px 18px;border:2px solid #dfc28c;border-radius:9px;background:linear-gradient(105deg,#3e2e4f,#9b6d7b,#3a2a45);color:#fff4d9;font-weight:850;letter-spacing:.04em;text-shadow:0 1px 4px #160d25;box-shadow:0 7px 22px #d9a86d3d}
+.shop-bundle-art{display:flex;align-items:center;justify-content:center;gap:7px;min-height:92px}
+.shop-bundle-art i{display:grid;place-items:center;width:43px;height:53px;border:1px solid #a99cff;border-radius:10px;background:linear-gradient(145deg,#7668df44,#172039);color:#f1eaff;font-size:20px;font-style:normal;box-shadow:0 5px 14px #070b1888}
+.shop-item-title{display:flex;align-items:center;justify-content:space-between;gap:7px}
+.shop-equipped-tag,.shop-owned-tag{flex:0 0 auto;padding:4px 7px;border-radius:99px;background:#5145a8;color:#f4f0ff;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.shop-owned-tag{background:#273d53;color:#a9e5f5}
+.shop-bundle-includes,.shop-preview-note,.shop-auth-note{margin:3px 0 9px;color:#9ba8c5;font-size:10px;line-height:1.4}
+.shop-preview-note{color:#bbaeff}
+.shop-auth-note{padding:8px;border-radius:8px;background:#1e2942}
+.shop-item-actions{display:flex;gap:8px}
+.shop-item-actions button{flex:1}
+.shop-equipped-summary{margin-top:28px;padding:16px;border:1px solid #2e3858;border-radius:14px;background:#121a2e}
+.shop-equipped-summary>strong{font-size:14px}
+.shop-equipped-summary>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+.shop-equipped-summary>div>div{display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:9px;background:#1b2540}
+.shop-equipped-summary span{color:#9ba8c5;font-size:10px}
+.shop-equipped-summary>div>div>strong{font-size:12px}
+.avatar-decoration-active{position:relative;isolation:isolate;box-shadow:0 0 0 3px #b5a5ff,0 0 0 7px #8a78f044,0 0 20px #a18dff99!important}
+.profile-frame-active{position:relative;isolation:isolate;border:1px solid #b59fff!important;box-shadow:inset 0 0 0 3px #9d89ff2b,0 0 0 1px #9d89ff55,0 12px 30px #070b1880!important}
+.profile-effect-active{animation:bubble-profile-effect 3.4s ease-in-out infinite}
+.nameplate-active{display:inline-block;padding:4px 9px;border:1px solid #d5b67c;border-radius:7px;background:linear-gradient(100deg,#46334f,#73516b,#37304c);color:#fff0d1!important;text-shadow:0 1px 3px #1b1028;box-shadow:0 4px 14px #d7ae7130}
+.profile-cosmetic-preview{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 16px}
+.profile-cosmetic-preview strong{font-size:15px}
+.profile-cosmetic-preview small{color:#aeb6cc;font-size:11px}
+.profile-mini.profile-frame-active{padding:15px;border-radius:13px}
+.profile-mini .avatar-profile.avatar-decoration-active{outline:0}
+.message-avatar.avatar-decoration-active{border-radius:50%}
+@keyframes bubble-effect-pulse{0%,100%{transform:scale(.97);filter:saturate(.9)}50%{transform:scale(1.04);filter:saturate(1.25)}}
+@keyframes bubble-profile-effect{0%,100%{box-shadow:0 0 0 1px #8c7bf044,0 0 12px #8c7bf022}50%{box-shadow:0 0 0 1px #a99cff88,0 0 26px #8c7bf077}}
+@media(max-width:700px){.shop-account-strip{flex-wrap:wrap}.shop-account-strip>div{flex-basis:100%}.shop-account-strip button{flex:1}.shop-equipped-summary>div{grid-template-columns:1fr}.shop-item-title{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.shop-effect-orb,.profile-effect-active{animation:none!important}}
