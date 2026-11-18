@@ -3,9 +3,9 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: "Bubble Chat | Your space to talk",
+  title: "Bubble Chat | Communities and conversations",
   description:
-    "Chat with friends, join rooms, and keep conversations connected with Bubble Chat.",
+    "Join a Bubble Chat room, keep up with friends, and bring your conversations together in one place.",
   generator: "v0.app",
   icons: {
     icon: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: 'dark',
-  themeColor: '#232428',
+  themeColor: '#0b1020',
 }
 
 export default function RootLayout({
@@ -37,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark bg-background">
       <body className="antialiased">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
